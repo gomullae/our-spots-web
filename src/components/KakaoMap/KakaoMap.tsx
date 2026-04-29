@@ -18,6 +18,7 @@ interface KakaoMapProps {
   searchResults?: SearchResultPlace[];
   onSearchMarkerClick?: (result: SearchResultPlace) => void;
   onMapMoved?: () => void;
+  currentLocation?: { lat: number; lng: number } | null;
 }
 
 export interface KakaoMapHandle {
@@ -38,6 +39,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   searchResults = [],
   onSearchMarkerClick,
   onMapMoved,
+  currentLocation,
 }, ref) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<KakaoMapInstance | null>(null);
@@ -45,6 +47,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   const searchMarkerInstancesRef = useRef<KakaoCustomOverlay[]>([]);
   const previewPinRef = useRef<KakaoCustomOverlay | null>(null);
   const highlightPinRef = useRef<KakaoCustomOverlay | null>(null);
+  const currentLocationOverlayRef = useRef<KakaoCustomOverlay | null>(null);
   const markerClickedRef = useRef(false);
   const programmaticMoveRef = useRef(false);
   const onMapMovedRef = useRef(onMapMoved);
@@ -109,6 +112,70 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
     const timer = setTimeout(() => { programmaticMoveRef.current = false; }, MAP_SETTLE_MS);
     return () => clearTimeout(timer);
   }, [mapReady, moveTo]);
+
+  // Current location overlay with ripple effect
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+
+    if (currentLocationOverlayRef.current) {
+      currentLocationOverlayRef.current.setMap(null);
+      currentLocationOverlayRef.current = null;
+    }
+
+    if (!currentLocation) return;
+
+    if (!document.getElementById('current-location-style')) {
+      const style = document.createElement('style');
+      style.id = 'current-location-style';
+      style.textContent = `
+        @keyframes locationRipple {
+          0% { transform: scale(1); opacity: 0.4; }
+          100% { transform: scale(3); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const el = document.createElement('div');
+    el.innerHTML = `
+      <div style="position: relative; width: 20px; height: 20px;">
+        <div style="
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          width: 20px; height: 20px;
+          background: rgba(66, 133, 244, 0.25);
+          border-radius: 50%;
+          animation: locationRipple 2s ease-out infinite;
+        "></div>
+        <div style="
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          width: 14px; height: 14px;
+          background: #4285F4;
+          border: 2.5px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        "></div>
+      </div>
+    `;
+
+    const position = new window.kakao.maps.LatLng(currentLocation.lat, currentLocation.lng);
+    const overlay = new window.kakao.maps.CustomOverlay({
+      position,
+      content: el,
+      yAnchor: 0.5,
+      xAnchor: 0.5,
+    });
+    overlay.setMap(mapInstanceRef.current);
+    currentLocationOverlayRef.current = overlay;
+
+    return () => {
+      overlay.setMap(null);
+      currentLocationOverlayRef.current = null;
+    };
+  }, [mapReady, currentLocation]);
 
   // Preview pin
   useEffect(() => {

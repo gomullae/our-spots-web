@@ -33,6 +33,9 @@ function Home() {
   const { isLoaded: isKakaoLoaded } = useKakaoSDK();
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [moveTo, setMoveTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isTrackingLocation, setIsTrackingLocation] = useState(false);
+  const locationWatchIdRef = useRef<number | null>(null);
   const [highlightPosition, setHighlightPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mapRef = useRef<KakaoMapHandle>(null);
@@ -196,18 +199,38 @@ function Home() {
     }
   }, []);
 
+  const stopTrackingLocation = useCallback(() => {
+    if (locationWatchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(locationWatchIdRef.current);
+      locationWatchIdRef.current = null;
+    }
+    setIsTrackingLocation(false);
+    setCurrentLocation(null);
+  }, []);
+
   const handleMoveToCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
       showToast('이 브라우저에서는 위치 서비스를 지원하지 않습니다.', 'error');
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
+    if (isTrackingLocation) {
+      stopTrackingLocation();
+      return;
+    }
+
+    let isFirst = true;
+    const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        setMoveTo({
+        const loc = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        });
+        };
+        setCurrentLocation(loc);
+        if (isFirst) {
+          setMoveTo(loc);
+          isFirst = false;
+        }
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
@@ -215,10 +238,22 @@ function Home() {
         } else {
           showToast('현재 위치를 가져올 수 없습니다.', 'error');
         }
+        stopTrackingLocation();
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [showToast]);
+
+    locationWatchIdRef.current = watchId;
+    setIsTrackingLocation(true);
+  }, [showToast, isTrackingLocation, stopTrackingLocation]);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+      }
+    };
+  }, []);
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden">
@@ -236,6 +271,7 @@ function Home() {
         searchResults={search.searchResults}
         onSearchMarkerClick={search.handleSearchResultSelect}
         onMapMoved={search.handleMapMoved}
+        currentLocation={currentLocation}
       />
 
       {/* Header */}
@@ -424,10 +460,10 @@ function Home() {
       <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-10 flex flex-col gap-2">
         <button
           onClick={handleMoveToCurrentLocation}
-          className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg hover:bg-white transition-colors"
-          title="현재 위치로 이동"
+          className={`backdrop-blur p-2.5 rounded-full shadow-lg transition-colors ${isTrackingLocation ? 'bg-blue-500 hover:bg-blue-600' : 'bg-white/90 hover:bg-white'}`}
+          title={isTrackingLocation ? '위치 추적 중지' : '현재 위치로 이동'}
         >
-          <CurrentLocationIcon className="w-5 h-5 text-gray-600" />
+          <CurrentLocationIcon className={`w-5 h-5 ${isTrackingLocation ? 'text-white' : 'text-gray-600'}`} />
         </button>
         <ShareLinkButton />
         <button
