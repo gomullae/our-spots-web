@@ -1,4 +1,4 @@
-import { ApiResponse, Marker, Place, PlaceDetail, PlaceType } from '@/types';
+import { ApiResponse, Marker, Place, PlaceDetail, PlaceType, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -136,6 +136,25 @@ export const mapApi = {
   refreshMarkers: () => {
     return fetchApi<Marker[]>('/map/markers/refresh', {
       method: 'POST',
+    });
+  },
+};
+
+export const weightApi = {
+  getAll: () => {
+    return fetchApi<WeightRecord[]>('/weights');
+  },
+
+  upsert: (record: WeightRecordUpsertPayload) => {
+    return fetchApi<WeightRecord>('/weights', {
+      method: 'POST',
+      body: JSON.stringify(record),
+    });
+  },
+
+  delete: (id: number) => {
+    return fetchApi<void>(`/weights/${id}`, {
+      method: 'DELETE',
     });
   },
 };

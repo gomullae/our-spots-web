@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { PlaceDetail as PlaceDetailType, PlaceType } from '@/types';
 import { TYPE_CONFIG, getGradeLabel, PANEL_DIMENSIONS } from '@/constants/placeConfig';
 import { clampPosition } from '@/utils/position';
-import { CloseIcon } from '@/components/icons';
+import { openNaverDirections } from '@/utils/naverMap';
+import { CloseIcon, CopyIcon, CheckIcon, SearchIcon, ArrowRightIcon, CurrentLocationIcon } from '@/components/icons';
 
 interface PlaceDetailProps {
   place: PlaceDetailType | null;
@@ -179,10 +180,7 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
         <div className="space-y-3">
           {/* Address */}
           <div className="flex items-start gap-1.5 text-xs text-gray-600">
-            <svg className="w-3 h-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <CurrentLocationIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
             <span className="flex-1">{place.address}</span>
             <button
               onClick={handleCopyAddress}
@@ -190,13 +188,9 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
               aria-label="주소 복사"
             >
               {isCopied ? (
-                <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckIcon className="w-3.5 h-3.5 text-green-500" />
               ) : (
-                <svg className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+                <CopyIcon className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
               )}
             </button>
           </div>
@@ -214,29 +208,43 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
             >
               <span className="text-sm">🔵</span>
               <span className="text-xs font-medium text-blue-700">Google</span>
-              {place.googleRating && (
-                <div className="flex items-center gap-1 ml-1">
+              {place.googleRating ? (
+                <div className="flex items-center gap-1 ml-auto">
                   <span className="text-yellow-500 text-xs">★</span>
                   <span className="text-xs font-semibold text-gray-700">{place.googleRating.toFixed(1)}</span>
                   {place.googleRatingsTotal && (
                     <span className="text-[10px] text-gray-400">({place.googleRatingsTotal.toLocaleString()})</span>
                   )}
                 </div>
+              ) : (
+                <span className="text-[10px] text-gray-400 ml-auto">리뷰 없음</span>
               )}
-              <span className="text-[10px] text-blue-500 ml-auto">리뷰 →</span>
             </a>
-            <a
-              href={`https://search.naver.com/search.naver?query=${encodeURIComponent(
-                place.address.split(' ').slice(0, 2).join(' ') + ' ' + place.name
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-2 hover:bg-gray-50 transition-colors"
-            >
+            <div className="flex items-center gap-2 p-2">
               <span className="text-sm">🟢</span>
               <span className="text-xs font-medium text-green-700">Naver</span>
-              <span className="text-[10px] text-green-500 ml-auto">검색 →</span>
-            </a>
+              <div className="flex items-center gap-2.5 ml-auto">
+                <a
+                  href={`https://search.naver.com/search.naver?query=${encodeURIComponent(
+                    place.address.split(' ').slice(0, 2).join(' ') + ' ' + place.name
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <SearchIcon className="w-3 h-3" />
+                  검색
+                </a>
+                <span className="w-px h-3 bg-gray-300" />
+                <button
+                  onClick={() => openNaverDirections(place.latitude, place.longitude, place.name)}
+                  className="flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                >
+                  <ArrowRightIcon className="w-3 h-3" />
+                  길찾기
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Description */}

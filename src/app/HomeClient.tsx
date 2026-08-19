@@ -17,7 +17,7 @@ import FeedbackModal from '@/components/FeedbackModal';
 import SearchResultsPanel from '@/components/SearchResultsPanel';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
-import { LocationPinIcon, RefreshIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon } from '@/components/icons';
+import { LocationPinIcon, RefreshIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, ScaleIcon } from '@/components/icons';
 import { mapApi, placeApi } from '@/services/api';
 import { Marker } from '@/types';
 import { useMarkerFilter } from '@/hooks/useMarkerFilter';
@@ -429,6 +429,15 @@ function Home() {
 
       {/* Floating action buttons - bottom left */}
       <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-10 flex flex-col gap-2">
+        {auth.isAuthenticated && (
+          <button
+            onClick={() => window.open('/admin/weight', '_blank')}
+            className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg hover:bg-white transition-colors"
+            title="체중 관리"
+          >
+            <ScaleIcon className="w-5 h-5 text-gray-600" />
+          </button>
+        )}
         {auth.isAuthenticated && (
           <button
             onClick={handleRefreshMarkers}

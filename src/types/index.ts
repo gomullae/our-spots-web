@@ -43,3 +43,18 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+export interface WeightRecord {
+  id: number;
+  recordedDate: string;
+  weightKg: number;
+  memo?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WeightRecordUpsertPayload {
+  recordedDate: string;
+  weightKg: number;
+  memo?: string;
+}
