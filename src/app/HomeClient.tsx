@@ -301,6 +301,7 @@ function Home() {
           <AddressSearch
             onSelect={place.handleSearchSelect}
             onSearchKeyword={search.handleSearchKeyword}
+            onClearKeyword={search.handleCloseSearchResults}
           />
         </div>
       </header>

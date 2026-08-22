@@ -36,7 +36,7 @@ export function useMapSearch({
   const [showResearchButton, setShowResearchButton] = useState(false);
   const [searchToast, setSearchToast] = useState<string | null>(null);
   const searchKeywordRef = useRef('');
-  const lastSearchCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastSearchBoundsRef = useRef<{ sw: { lat: number; lng: number }; ne: { lat: number; lng: number } } | null>(null);
   searchKeywordRef.current = searchKeyword;
 
   const performMapSearch = useCallback((keyword: string) => {
@@ -64,8 +64,8 @@ export function useMapSearch({
     }
 
     const processResults = (allData: KakaoPlaceSearchResult[]) => {
-      if (center) {
-        lastSearchCenterRef.current = center;
+      if (bounds) {
+        lastSearchBoundsRef.current = bounds;
       }
 
       if (allData.length > 0) {
@@ -127,21 +127,25 @@ export function useMapSearch({
   const handleMapMoved = useCallback(() => {
     if (!searchKeywordRef.current) return;
 
-    const currentCenter = mapRef.current?.getCenter();
-    const lastCenter = lastSearchCenterRef.current;
-
-    if (!lastCenter) {
+    const lastBounds = lastSearchBoundsRef.current;
+    if (!lastBounds) {
       setShowResearchButton(true);
       return;
     }
 
-    if (currentCenter) {
-      const dLat = currentCenter.lat - lastCenter.lat;
-      const dLng = currentCenter.lng - lastCenter.lng;
-      const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-      if (dist > 0.002) {
-        setShowResearchButton(true);
-      }
+    const currentBounds = mapRef.current?.getBounds();
+    if (!currentBounds) return;
+
+    // 현재 화면(bounds)이 마지막 검색 범위 안에 완전히 들어와 있지 않으면
+    // (줌아웃으로 넓어졌거나, 팬으로 벗어난 경우) 검색 안 된 영역이 노출된 것 → 재검색 필요
+    const isContained =
+      currentBounds.sw.lat >= lastBounds.sw.lat &&
+      currentBounds.sw.lng >= lastBounds.sw.lng &&
+      currentBounds.ne.lat <= lastBounds.ne.lat &&
+      currentBounds.ne.lng <= lastBounds.ne.lng;
+
+    if (!isContained) {
+      setShowResearchButton(true);
     }
   }, [mapRef]);
 
@@ -169,7 +173,7 @@ export function useMapSearch({
     setSearchResults([]);
     setSearchKeyword('');
     setShowResearchButton(false);
-    lastSearchCenterRef.current = null;
+    lastSearchBoundsRef.current = null;
   }, []);
 
   return {

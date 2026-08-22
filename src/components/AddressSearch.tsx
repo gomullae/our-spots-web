@@ -17,11 +17,13 @@ interface SearchResult {
 interface AddressSearchProps {
   onSelect: (result: { lat: number; lng: number; address: string; name?: string }) => void;
   onSearchKeyword?: (keyword: string) => void;
+  onClearKeyword?: () => void;
 }
 
 export default function AddressSearch({
   onSelect,
   onSearchKeyword,
+  onClearKeyword,
 }: AddressSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -95,6 +97,7 @@ export default function AddressSearch({
     setQuery('');
     setResults([]);
     setShowResults(false);
+    onClearKeyword?.();
   };
 
   return (
