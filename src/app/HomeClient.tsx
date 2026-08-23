@@ -18,7 +18,7 @@ import FeedbackModal from '@/components/FeedbackModal';
 import SearchResultsPanel from '@/components/SearchResultsPanel';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
-import { LocationPinIcon, RefreshIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, ScaleIcon, ListIcon } from '@/components/icons';
+import { LocationPinIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, ScaleIcon, SettingsIcon } from '@/components/icons';
 import { mapApi, placeApi } from '@/services/api';
 import { Marker } from '@/types';
 import { useMarkerFilter } from '@/hooks/useMarkerFilter';
@@ -96,8 +96,7 @@ function Home() {
     setPreviewScreenPosition(pos);
   }, [place.previewPlace]);
 
-  // About modal & refresh state
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // About modal state
   const [showAbout, setShowAbout] = useState(false);
   const [showAboutBadge, setShowAboutBadge] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -193,18 +192,6 @@ function Home() {
     return () => { cancelled = true; clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  const handleRefreshMarkers = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const data = await mapApi.refreshMarkers();
-      setMarkers(data);
-    } catch (err) {
-      console.error('Failed to refresh markers:', err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
 
   const stopTrackingLocation = useCallback(() => {
     if (locationWatchIdRef.current !== null) {
@@ -442,13 +429,8 @@ function Home() {
           </FloatingIconButton>
         )}
         {auth.isAuthenticated && (
-          <FloatingIconButton onClick={() => window.open('/admin/places', '_blank')} title="최근 등록 장소">
-            <ListIcon className="w-5 h-5 text-gray-600" />
-          </FloatingIconButton>
-        )}
-        {auth.isAuthenticated && (
-          <FloatingIconButton onClick={handleRefreshMarkers} disabled={isRefreshing} title="DB에서 마커 새로고침">
-            <RefreshIcon className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <FloatingIconButton onClick={() => window.open('/admin/places', '_blank')} title="관리">
+            <SettingsIcon className="w-5 h-5 text-gray-600" />
           </FloatingIconButton>
         )}
         <button
