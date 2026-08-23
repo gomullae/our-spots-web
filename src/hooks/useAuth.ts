@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { authApi, isLoggedIn } from '@/services/api';
 
-interface UseAuthReturn {
+export interface UseAuthReturn {
   isAuthenticated: boolean;
   showLoginModal: boolean;
   loginError: string | undefined;

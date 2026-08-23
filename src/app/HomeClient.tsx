@@ -9,6 +9,7 @@ import PlaceForm from '@/components/PlaceForm';
 import FilterButtons from '@/components/FilterButtons';
 import AddressSearch from '@/components/AddressSearch';
 import ShareLinkButton from '@/components/ShareLinkButton';
+import FloatingIconButton from '@/components/FloatingIconButton';
 import LoginModal from '@/components/LoginModal';
 import PlaceListPopup from '@/components/PlaceListPopup';
 import PlacePreviewCard from '@/components/PlacePreviewCard';
@@ -17,7 +18,7 @@ import FeedbackModal from '@/components/FeedbackModal';
 import SearchResultsPanel from '@/components/SearchResultsPanel';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
-import { LocationPinIcon, RefreshIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, ScaleIcon } from '@/components/icons';
+import { LocationPinIcon, RefreshIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, ScaleIcon, ListIcon } from '@/components/icons';
 import { mapApi, placeApi } from '@/services/api';
 import { Marker } from '@/types';
 import { useMarkerFilter } from '@/hooks/useMarkerFilter';
@@ -63,6 +64,12 @@ function Home() {
     clearPanels: place.clearPanels,
     clearDetailPanels: place.clearDetailPanels,
   });
+
+  // 검색창 자동완성에서 장소를 직접 선택하면 "현 지도에서 검색" 의도는 끝난 것이므로 관련 상태 초기화
+  const handleAddressSelect = (result: { lat: number; lng: number; address: string; name?: string }) => {
+    place.handleSearchSelect(result);
+    search.handleCloseSearchResults();
+  };
 
   // Toast & Confirm
   const { toasts, showToast, removeToast } = useToast();
@@ -299,9 +306,8 @@ function Home() {
             isAuthenticated={auth.isAuthenticated}
           />
           <AddressSearch
-            onSelect={place.handleSearchSelect}
+            onSelect={handleAddressSelect}
             onSearchKeyword={search.handleSearchKeyword}
-            onClearKeyword={search.handleCloseSearchResults}
           />
         </div>
       </header>
@@ -431,23 +437,19 @@ function Home() {
       {/* Floating action buttons - bottom left */}
       <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-10 flex flex-col gap-2">
         {auth.isAuthenticated && (
-          <button
-            onClick={() => window.open('/admin/weight', '_blank')}
-            className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg hover:bg-white transition-colors"
-            title="체중 관리"
-          >
+          <FloatingIconButton onClick={() => window.open('/admin/weight', '_blank')} title="체중 관리">
             <ScaleIcon className="w-5 h-5 text-gray-600" />
-          </button>
+          </FloatingIconButton>
         )}
         {auth.isAuthenticated && (
-          <button
-            onClick={handleRefreshMarkers}
-            disabled={isRefreshing}
-            className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg hover:bg-white transition-colors disabled:opacity-50"
-            title="DB에서 마커 새로고침"
-          >
+          <FloatingIconButton onClick={() => window.open('/admin/places', '_blank')} title="최근 등록 장소">
+            <ListIcon className="w-5 h-5 text-gray-600" />
+          </FloatingIconButton>
+        )}
+        {auth.isAuthenticated && (
+          <FloatingIconButton onClick={handleRefreshMarkers} disabled={isRefreshing} title="DB에서 마커 새로고침">
             <RefreshIcon className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </button>
+          </FloatingIconButton>
         )}
         <button
           onClick={auth.isAuthenticated ? auth.handleLogout : () => { auth.setLoginError(undefined); auth.setShowLoginModal(true); }}
@@ -476,23 +478,19 @@ function Home() {
           <CurrentLocationIcon className={`w-5 h-5 ${isTrackingLocation ? 'text-white' : 'text-gray-600'}`} />
         </button>
         <ShareLinkButton />
-        <button
+        <FloatingIconButton
           onClick={() => { setShowAbout(true); setShowAboutBadge(false); localStorage.setItem('about-seen', '1'); }}
-          className="relative bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg hover:bg-white transition-colors"
           title="프로젝트 소개"
+          className="relative"
         >
           <MegaphoneIcon className="w-5 h-5 text-gray-600" />
           {showAboutBadge && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
           )}
-        </button>
-        <button
-          onClick={() => setShowFeedback(true)}
-          className="bg-white/90 backdrop-blur p-2.5 rounded-full shadow-lg hover:bg-white transition-colors"
-          title="피드백"
-        >
+        </FloatingIconButton>
+        <FloatingIconButton onClick={() => setShowFeedback(true)} title="피드백">
           <ChatBubbleIcon className="w-5 h-5 text-gray-600" />
-        </button>
+        </FloatingIconButton>
       </div>
 
       {/* Login Modal */}

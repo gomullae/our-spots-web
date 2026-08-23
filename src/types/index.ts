@@ -15,6 +15,7 @@ export interface Place {
   googleRatingsTotal?: number;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 export type PlaceDetail = Place;
@@ -42,6 +43,13 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
 }
 
 export interface WeightRecord {

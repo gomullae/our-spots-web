@@ -1,4 +1,4 @@
-import { ApiResponse, Marker, Place, PlaceDetail, PlaceType, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, Marker, PageResponse, Place, PlaceDetail, PlaceType, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -87,6 +87,42 @@ export const placeApi = {
     const params = type ? `?type=${type}` : '';
     return fetchApi<Place[]>(`/places${params}`);
 
+  },
+
+  getRecent: (params: {
+    startDate: string;
+    endDate: string;
+    keyword?: string;
+    type?: PlaceType;
+    grade?: number;
+    includeDeleted?: boolean;
+    page: number;
+    size?: number;
+  }) => {
+    const query = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      includeDeleted: String(params.includeDeleted ?? true),
+      page: String(params.page),
+      size: String(params.size ?? 10),
+    });
+    if (params.keyword) query.set('keyword', params.keyword);
+    if (params.type) query.set('type', params.type);
+    if (params.grade != null) query.set('grade', String(params.grade));
+
+    return fetchApi<PageResponse<Place>>(`/places/recent?${query.toString()}`);
+  },
+
+  restore: (id: number) => {
+    return fetchApi<Place>(`/places/${id}/restore`, {
+      method: 'POST',
+    });
+  },
+
+  syncGoogleRating: (id: number) => {
+    return fetchApi<Place>(`/places/${id}/sync-google`, {
+      method: 'POST',
+    });
   },
 
   getById: (id: number) => {
