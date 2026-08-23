@@ -108,7 +108,7 @@ export function usePlaceActions({
 
   const handleMapClick = useCallback((latlng?: { lat?: number; lng?: number; address?: string }) => {
     clearPanels();
-    // Ctrl+Click: 좌표가 있으면 장소 등록 미리보기 진입
+    // 좌표가 있으면 장소 등록 미리보기 진입 (데스크톱 Ctrl/Cmd+Click, 모바일 롱프레스 둘 다 이 경로를 탐)
     if (latlng?.lat != null && latlng?.lng != null) {
       setPreviewPlace({
         lat: latlng.lat,

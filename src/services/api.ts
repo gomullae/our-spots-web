@@ -1,4 +1,4 @@
-import { ApiResponse, Marker, PageResponse, Place, PlaceDetail, PlaceType, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -192,6 +192,72 @@ export const weightApi = {
     return fetchApi<void>(`/weights/${id}`, {
       method: 'DELETE',
     });
+  },
+};
+
+export const expenseApi = {
+  getByRange: (startDate: string, endDate: string, includeDeleted?: boolean) => {
+    const query = new URLSearchParams({ startDate, endDate, includeDeleted: String(includeDeleted ?? false) });
+    return fetchApi<ExpenseRecord[]>(`/expenses?${query.toString()}`);
+  },
+
+  create: (record: ExpenseRecordPayload) => {
+    return fetchApi<ExpenseRecord>('/expenses', {
+      method: 'POST',
+      body: JSON.stringify(record),
+    });
+  },
+
+  update: (id: number, record: ExpenseRecordPayload) => {
+    return fetchApi<ExpenseRecord>(`/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(record),
+    });
+  },
+
+  delete: (id: number) => {
+    return fetchApi<void>(`/expenses/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  restore: (id: number) => {
+    return fetchApi<ExpenseRecord>(`/expenses/${id}/restore`, {
+      method: 'POST',
+    });
+  },
+};
+
+export const backupApi = {
+  // 응답이 JSON이 아니라 바이너리 파일이라 fetchApi<T> 대신 직접 fetch + blob 다운로드 처리
+  download: async (table: BackupTable, period: BackupPeriod): Promise<void> => {
+    const token = getToken();
+    const query = new URLSearchParams({ table, period });
+    const res = await fetch(`${API_BASE_URL}/admin/backup?${query.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (res.status === 401) {
+      clearToken();
+      window.dispatchEvent(new Event('auth-expired'));
+      throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+    }
+    if (!res.ok) {
+      throw new Error('백업 다운로드에 실패했습니다');
+    }
+
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] || `${table.toLowerCase()}_backup.xlsx`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
 };
 

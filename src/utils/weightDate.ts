@@ -7,7 +7,7 @@ export function toDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function parseDateString(dateStr: string): Date {
+export function parseDateString(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
 }

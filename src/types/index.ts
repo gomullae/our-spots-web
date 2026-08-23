@@ -66,3 +66,29 @@ export interface WeightRecordUpsertPayload {
   weightKg: number;
   memo?: string;
 }
+
+export type PaymentMethod = 'WOW_CARD' | 'KB_CARD' | 'WOORI_CARD' | 'HYUNDAI_CARD' | 'CHOYOUNG_PAYMENT' | 'OTHER';
+export type ExpenseCategory = 'FOOD' | 'LIVING' | 'IRREGULAR';
+
+export interface ExpenseRecord {
+  id: number;
+  expenseDate: string;
+  paymentMethod: PaymentMethod;
+  category: ExpenseCategory;
+  merchant: string;
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface ExpenseRecordPayload {
+  expenseDate: string;
+  paymentMethod: PaymentMethod;
+  category: ExpenseCategory;
+  merchant: string;
+  amount: number;
+}
+
+export type BackupTable = 'PLACES' | 'EXPENSE_RECORDS' | 'WEIGHT_RECORDS' | 'LOGIN_ATTEMPTS' | 'FEEDBACKS';
+export type BackupPeriod = 'ALL' | 'RECENT_3_MONTHS';

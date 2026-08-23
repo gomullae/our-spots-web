@@ -54,12 +54,10 @@ export function useMarkerFilter({
   const filteredMarkers = useMemo(() => {
     let result = markers;
 
-    // 비로그인 시 개인 카테고리 숨김
     if (!isAuthenticated) {
       result = result.filter(m => !PERSONAL_TYPES.includes(m.type));
     }
 
-    // 선택된 타입 필터
     result = result.filter(m => selectedTypes.has(m.type));
 
     // 등급 필터 (공개 카테고리만 적용, 개인 카테고리는 항상 표시)
@@ -69,7 +67,6 @@ export function useMarkerFilter({
     return result.filter(m => PERSONAL_TYPES.includes(m.type) || (m.grade && selectedGrades.has(m.grade)));
   }, [markers, selectedTypes, selectedGrades, isAuthenticated]);
 
-  // 타입 토글 핸들러
   const handleTypeToggle = useCallback((type: PlaceType | null) => {
     setSelectedTypes(prev => {
       const next = new Set(prev);
@@ -95,7 +92,6 @@ export function useMarkerFilter({
         return next;
       }
 
-      // 공개 타입 클릭
       const allPublicSelected = PUBLIC_TYPES.every(t => prev.has(t));
       if (allPublicSelected) {
         PUBLIC_TYPES.forEach(t => next.delete(t));

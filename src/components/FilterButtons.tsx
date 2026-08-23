@@ -19,7 +19,6 @@ export default function FilterButtons({ selectedTypes, onTypeToggle, selectedGra
 
   const isAllPublicSelected = PUBLIC_TYPES.every(t => selectedTypes.has(t));
 
-  // 외부 클릭 시 메뉴 닫기
   const closeMenu = useCallback(() => setShowGradeMenu(false), []);
   useClickOutside(menuRef, closeMenu);
 
@@ -33,7 +32,7 @@ export default function FilterButtons({ selectedTypes, onTypeToggle, selectedGra
     onGradeChange(newGrades);
   };
 
-  // 필터가 기본값(1,2)이 아닌지 확인
+  // 기본값({1,2})도 3개 전체 선택은 아니라서 파란 점이 뜸 — "건드렸는지"가 아니라 "전체 선택인지"가 기준
   const isFiltered = selectedGrades.size < 3;
 
   return (
