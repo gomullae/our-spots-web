@@ -1,4 +1,4 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, TableData, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -258,6 +258,13 @@ export const backupApi = {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  },
+};
+
+export const adminLogApi = {
+  getLogs: (table: BackupTable, period: BackupPeriod) => {
+    const query = new URLSearchParams({ table, period });
+    return fetchApi<TableData>(`/admin/logs?${query.toString()}`);
   },
 };
 

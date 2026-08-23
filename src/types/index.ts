@@ -90,5 +90,10 @@ export interface ExpenseRecordPayload {
   amount: number;
 }
 
-export type BackupTable = 'PLACES' | 'EXPENSE_RECORDS' | 'WEIGHT_RECORDS' | 'LOGIN_ATTEMPTS' | 'FEEDBACKS';
+export type BackupTable = 'PLACES' | 'EXPENSE_RECORDS' | 'WEIGHT_RECORDS' | 'LOGIN_ATTEMPTS' | 'FEEDBACKS' | 'ERROR_LOGS' | 'ACCESS_DENIED_LOGS';
 export type BackupPeriod = 'ALL' | 'RECENT_3_MONTHS';
+
+export interface TableData {
+  headers: string[];
+  rows: (string | number | boolean | null)[][];
+}

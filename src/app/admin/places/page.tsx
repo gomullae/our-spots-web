@@ -4,16 +4,18 @@ import { useState } from 'react';
 import AdminPageShell from '@/components/AdminPageShell';
 import PlacesListTab from '@/components/admin/PlacesListTab';
 import OpsToolsTab from '@/components/admin/OpsToolsTab';
+import LogHistoryTab from '@/components/admin/LogHistoryTab';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 
-type Tab = 'ops' | 'recent';
+type Tab = 'ops' | 'recent' | 'logs';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'ops', label: '운영 도구' },
   { key: 'recent', label: '최근 등록 장소' },
+  { key: 'logs', label: '로그 이력' },
 ];
 
 export default function AdminPlacesPage() {
@@ -49,6 +51,7 @@ export default function AdminPlacesPage() {
 
       {tab === 'ops' && <OpsToolsTab showToast={showToast} />}
       {tab === 'recent' && <PlacesListTab showToast={showToast} showConfirm={showConfirm} />}
+      {tab === 'logs' && <LogHistoryTab showToast={showToast} />}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       {confirmState && (
