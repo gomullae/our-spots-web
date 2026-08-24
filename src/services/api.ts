@@ -226,6 +226,13 @@ export const expenseApi = {
       method: 'POST',
     });
   },
+
+  sendWeeklySummary: (startDate: string, endDate: string, budget: number) => {
+    const query = new URLSearchParams({ startDate, endDate, budget: String(budget) });
+    return fetchApi<void>(`/expenses/weekly-summary?${query.toString()}`, {
+      method: 'POST',
+    });
+  },
 };
 
 export const backupApi = {

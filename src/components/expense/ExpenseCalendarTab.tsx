@@ -65,6 +65,8 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const [categoryPage, setCategoryPage] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState<WeekRange | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
+  const [budgetInput, setBudgetInput] = useState('500000');
+  const [isSending, setIsSending] = useState(false);
 
   const weeks = getMonthWeeks(yearMonth);
 
@@ -90,6 +92,23 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
 
   if (selectedWeek) {
     const weekRecords = records.filter((r) => inRange(r, selectedWeek)).sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
+
+    const handleSendSummary = async () => {
+      const budget = Number(budgetInput);
+      if (!budget || budget <= 0) {
+        showToast('예산 금액을 확인해주세요', 'error');
+        return;
+      }
+      setIsSending(true);
+      try {
+        await expenseApi.sendWeeklySummary(selectedWeek.start, selectedWeek.end, budget);
+        showToast('텔레그램으로 전송했습니다', 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : '전송에 실패했습니다', 'error');
+      } finally {
+        setIsSending(false);
+      }
+    };
 
     return (
       <div className="flex-1 overflow-y-auto">
@@ -167,6 +186,25 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
                 </section>
               );
             })}
+          </div>
+        )}
+
+        {!isLoading && weekRecords.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-3 border-t">
+            <span className="text-xs text-gray-400 shrink-0">예산</span>
+            <input
+              type="number"
+              value={budgetInput}
+              onChange={(e) => setBudgetInput(e.target.value)}
+              className="flex-1 min-w-0 px-2 py-1 border rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleSendSummary}
+              disabled={isSending}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            >
+              {isSending ? '전송 중...' : '📨 정산 보내기'}
+            </button>
           </div>
         )}
       </div>
