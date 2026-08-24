@@ -65,7 +65,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const [categoryPage, setCategoryPage] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState<WeekRange | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
-  const [budgetInput, setBudgetInput] = useState('500000');
+  const [budgetInput, setBudgetInput] = useState('420000');
   const [isSending, setIsSending] = useState(false);
 
   const weeks = getMonthWeeks(yearMonth);

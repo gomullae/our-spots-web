@@ -16,11 +16,13 @@ interface ExpenseEntryTabProps {
   showConfirm: (message: string, onConfirm: () => void, isDestructive?: boolean) => void;
 }
 
-type SortBy = 'expenseDate' | 'amount';
+type SortBy = 'expenseDate' | 'amount' | 'createdAt' | 'updatedAt';
 
 const SORT_OPTIONS: { key: SortBy; label: string }[] = [
   { key: 'expenseDate', label: '지출일자순' },
   { key: 'amount', label: '금액순' },
+  { key: 'createdAt', label: '등록일시순' },
+  { key: 'updatedAt', label: '수정일시순' },
 ];
 
 // 생성 시 createdAt/updatedAt이 각각 별도로 now()를 호출해서 값이 미세하게 달라질 수 있어 분 단위로 잘라서 비교
@@ -81,7 +83,11 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
   const filteredRecords = records
     .filter((r) => (!categoryFilter || r.category === categoryFilter) && (!methodFilter || r.paymentMethod === methodFilter))
     .sort((a, b) => {
-      const cmp = sortBy === 'amount' ? a.amount - b.amount : a.expenseDate.localeCompare(b.expenseDate);
+      const cmp = sortBy === 'amount'
+        ? a.amount - b.amount
+        : sortBy === 'createdAt' || sortBy === 'updatedAt'
+          ? a[sortBy].localeCompare(b[sortBy])
+          : a.expenseDate.localeCompare(b.expenseDate);
       return sortDir === 'desc' ? -cmp : cmp;
     });
 

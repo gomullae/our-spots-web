@@ -42,6 +42,11 @@ export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
   };
 
   const handleDownloadBackup = async () => {
+    // iOS Safari 등 모바일은 blob+download 방식이 불안정해서(새 탭 미리보기로만 뜨고 저장 안 됨) 맥북/PC에서만 허용
+    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      showToast('데이터 백업은 맥북/PC 환경에서만 가능합니다', 'error');
+      return;
+    }
     setIsDownloading(true);
     try {
       await backupApi.download(backupTable, backupPeriod);
