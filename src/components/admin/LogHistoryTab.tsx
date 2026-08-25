@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Pagination from '@/components/Pagination';
+import { BACKUP_PERIODS, BACKUP_PERIOD_LABELS, BACKUP_TABLE_LABELS } from '@/constants/backupConfig';
 import { Toast } from '@/hooks/useToast';
 import { adminLogApi } from '@/services/api';
 import { BackupPeriod, BackupTable, TableData } from '@/types';
@@ -11,17 +13,7 @@ interface LogHistoryTabProps {
 
 const PAGE_SIZE = 10;
 
-const LOG_TABLES: { key: BackupTable; label: string }[] = [
-  { key: 'ERROR_LOGS', label: '에러 로그' },
-  { key: 'ACCESS_DENIED_LOGS', label: '비정상 접근' },
-  { key: 'LOGIN_ATTEMPTS', label: '로그인 시도' },
-  { key: 'FEEDBACKS', label: '방명록' },
-];
-
-const PERIODS: { key: BackupPeriod; label: string }[] = [
-  { key: 'ALL', label: '전체' },
-  { key: 'RECENT_3_MONTHS', label: '최근 3개월' },
-];
+const LOG_TABLE_OPTIONS: BackupTable[] = ['ERROR_LOGS', 'ACCESS_DENIED_LOGS', 'LOGIN_ATTEMPTS', 'FEEDBACKS'];
 
 export default function LogHistoryTab({ showToast }: LogHistoryTabProps) {
   const [table, setTable] = useState<BackupTable>('ERROR_LOGS');
@@ -55,22 +47,22 @@ export default function LogHistoryTab({ showToast }: LogHistoryTabProps) {
         onChange={(e) => setTable(e.target.value as BackupTable)}
         className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        {LOG_TABLES.map((t) => (
-          <option key={t.key} value={t.key}>{t.label}</option>
+        {LOG_TABLE_OPTIONS.map((key) => (
+          <option key={key} value={key}>{BACKUP_TABLE_LABELS[key]}</option>
         ))}
       </select>
 
       <div className="flex items-center gap-2">
         <div className="flex flex-wrap gap-1.5 flex-1">
-          {PERIODS.map((p) => (
+          {BACKUP_PERIODS.map((key) => (
             <button
-              key={p.key}
-              onClick={() => setPeriod(p.key)}
+              key={key}
+              onClick={() => setPeriod(key)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                period === p.key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
+                period === key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
               }`}
             >
-              {p.label}
+              {BACKUP_PERIOD_LABELS[key]}
             </button>
           ))}
         </div>
@@ -119,25 +111,7 @@ export default function LogHistoryTab({ showToast }: LogHistoryTabProps) {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 pt-1">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="text-xs font-medium text-gray-600 disabled:text-gray-300 transition-colors"
-              >
-                이전
-              </button>
-              <span className="text-[11px] text-gray-400">{page + 1} / {totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="text-xs font-medium text-gray-600 disabled:text-gray-300 transition-colors"
-              >
-                다음
-              </button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} className="flex items-center justify-center gap-4 pt-1" />
         </>
       )}
     </div>

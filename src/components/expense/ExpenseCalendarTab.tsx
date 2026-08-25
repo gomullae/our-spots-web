@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Pagination from '@/components/Pagination';
 import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
 import { ExpenseCategory, ExpenseRecord } from '@/types';
@@ -266,25 +267,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
                       <li className="text-xs text-gray-300">내역 없음</li>
                     )}
                   </ul>
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-4 pt-2">
-                      <button
-                        onClick={() => setCategoryPage((p) => Math.max(0, p - 1))}
-                        disabled={categoryPage === 0}
-                        className="text-xs font-medium text-gray-600 disabled:text-gray-300 transition-colors"
-                      >
-                        이전
-                      </button>
-                      <span className="text-[11px] text-gray-400">{categoryPage + 1} / {totalPages}</span>
-                      <button
-                        onClick={() => setCategoryPage((p) => Math.min(totalPages - 1, p + 1))}
-                        disabled={categoryPage >= totalPages - 1}
-                        className="text-xs font-medium text-gray-600 disabled:text-gray-300 transition-colors"
-                      >
-                        다음
-                      </button>
-                    </div>
-                  )}
+                  <Pagination page={categoryPage} totalPages={totalPages} onChange={setCategoryPage} className="flex items-center justify-center gap-4 pt-2" />
                 </>
               );
             })()}

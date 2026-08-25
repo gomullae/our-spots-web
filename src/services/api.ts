@@ -21,6 +21,13 @@ export function isLoggedIn(): boolean {
   return !!getToken();
 }
 
+// 토큰 만료 시 두 fetch 경로(JSON 응답의 fetchApi, 바이너리 응답의 backupApi.download)가 공통으로 수행
+function handleAuthExpired(): never {
+  clearToken();
+  window.dispatchEvent(new Event('auth-expired'));
+  throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+}
+
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -40,9 +47,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (res.status === 401) {
-    clearToken();
-    window.dispatchEvent(new Event('auth-expired'));
-    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+    handleAuthExpired();
   }
 
   // 빈 응답 처리 (DELETE 등)
@@ -245,9 +250,7 @@ export const backupApi = {
     });
 
     if (res.status === 401) {
-      clearToken();
-      window.dispatchEvent(new Event('auth-expired'));
-      throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+      handleAuthExpired();
     }
     if (!res.ok) {
       throw new Error('백업 다운로드에 실패했습니다');

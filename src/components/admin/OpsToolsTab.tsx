@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { DownloadIcon, RefreshIcon } from '@/components/icons';
+import { BACKUP_PERIODS, BACKUP_PERIOD_LABELS, BACKUP_TABLE_LABELS } from '@/constants/backupConfig';
 import { Toast } from '@/hooks/useToast';
 import { mapApi, backupApi } from '@/services/api';
 import { BackupPeriod, BackupTable } from '@/types';
@@ -10,18 +11,7 @@ interface OpsToolsTabProps {
   showToast: (message: string, type?: Toast['type']) => void;
 }
 
-const BACKUP_TABLES: { key: BackupTable; label: string }[] = [
-  { key: 'PLACES', label: '장소' },
-  { key: 'EXPENSE_RECORDS', label: '지출 내역' },
-  { key: 'WEIGHT_RECORDS', label: '체중 기록' },
-  { key: 'LOGIN_ATTEMPTS', label: '로그인 시도' },
-  { key: 'FEEDBACKS', label: '방명록' },
-];
-
-const BACKUP_PERIODS: { key: BackupPeriod; label: string }[] = [
-  { key: 'ALL', label: '전체' },
-  { key: 'RECENT_3_MONTHS', label: '최근 3개월' },
-];
+const BACKUP_TABLE_OPTIONS: BackupTable[] = ['PLACES', 'EXPENSE_RECORDS', 'WEIGHT_RECORDS', 'LOGIN_ATTEMPTS', 'FEEDBACKS'];
 
 export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -90,22 +80,22 @@ export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
           onChange={(e) => setBackupTable(e.target.value as BackupTable)}
           className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {BACKUP_TABLES.map((t) => (
-            <option key={t.key} value={t.key}>{t.label}</option>
+          {BACKUP_TABLE_OPTIONS.map((key) => (
+            <option key={key} value={key}>{BACKUP_TABLE_LABELS[key]}</option>
           ))}
         </select>
 
         <div className="flex items-center gap-2">
           <div className="flex flex-wrap gap-1.5 flex-1">
-            {BACKUP_PERIODS.map((p) => (
+            {BACKUP_PERIODS.map((key) => (
               <button
-                key={p.key}
-                onClick={() => setBackupPeriod(p.key)}
+                key={key}
+                onClick={() => setBackupPeriod(key)}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  backupPeriod === p.key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
+                  backupPeriod === key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
                 }`}
               >
-                {p.label}
+                {BACKUP_PERIOD_LABELS[key]}
               </button>
             ))}
           </div>
