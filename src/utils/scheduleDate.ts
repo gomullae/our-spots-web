@@ -1,13 +1,15 @@
+import { getWeekEnd, getWeekStart } from './expenseDate';
 import { parseDateString, shiftDate, toDateString } from './weightDate';
 
-// 일요일 시작(Sun~Sat) 달력 그리드 — 이 달 1일이 속한 주의 일요일부터 마지막 날이 속한 주의 토요일까지, 앞뒤 달 날짜도 채워서 항상 7의 배수 개수로 반환
+// 월요일 시작(Mon~Sun) 달력 그리드 — 이 달 1일이 속한 주의 월요일부터 마지막 날이 속한 주의 일요일까지, 앞뒤 달 날짜도 채워서 항상 7의 배수 개수로 반환
+// (가계부 달력 탭과 동일한 월요일 시작 기준이라 주 경계 계산도 그쪽의 getWeekStart/getWeekEnd를 그대로 재사용)
 export function getCalendarGridDays(yearMonth: string): string[] {
   const [year, month] = yearMonth.split('-').map(Number);
   const firstDay = toDateString(new Date(year, month - 1, 1));
   const lastDay = toDateString(new Date(year, month, 0));
 
-  const gridStart = shiftDate(firstDay, -parseDateString(firstDay).getDay());
-  const gridEnd = shiftDate(lastDay, 6 - parseDateString(lastDay).getDay());
+  const gridStart = getWeekStart(firstDay);
+  const gridEnd = getWeekEnd(getWeekStart(lastDay));
 
   const days: string[] = [];
   let cursor = gridStart;

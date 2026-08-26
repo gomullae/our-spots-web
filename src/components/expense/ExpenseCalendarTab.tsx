@@ -1,12 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import DayExpensesSheet from './DayExpensesSheet';
 import Pagination from '@/components/Pagination';
-import { useSwipeMonthNav } from '@/hooks/useSwipeMonthNav';
+import { ArrowRightIcon } from '@/components/icons';
+import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
+import { useSwipeNav } from '@/hooks/useSwipeNav';
 import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
-import { ExpenseCategory, ExpenseRecord } from '@/types';
+import { ExpenseCategory, ExpenseMeta, ExpenseRecord } from '@/types';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
+import { isSameExpenseMeta, readExpenseCache, writeExpenseCache } from '@/utils/expenseCache';
 import { formatAmount, formatAmountCompact, sumAmount } from '@/utils/expenseFormat';
 import { WeekRange, currentYearMonth, formatMonthLabel, formatMonthShortLabel, formatWeekLabel, getMonthWeeks, shiftMonth } from '@/utils/expenseDate';
 import { parseDateString, shiftDate } from '@/utils/weightDate';
@@ -61,28 +65,71 @@ function weekDays(week: WeekRange, yearMonth: string, records: ExpenseRecord[]) 
 
 export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProps) {
   const [yearMonth, setYearMonth] = useState(currentYearMonth);
-  const [records, setRecords] = useState<ExpenseRecord[]>([]);
+  // 초기 렌더 시점에 캐시를 동기적으로 읽어서 첫 페인트부터 바로 그려지게 함(일정 관리와 동일한 패턴) — 실제로 최신인지는 마운트 후 백그라운드에서 검증
+  const [records, setRecords] = useState<ExpenseRecord[]>(() => readExpenseCache()?.months[currentYearMonth()] ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<ExpenseCategory | null>(null);
   const [categoryPage, setCategoryPage] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState<WeekRange | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
   const [budgetInput, setBudgetInput] = useState('420000');
   const [isSending, setIsSending] = useState(false);
-  const { handleTouchStart, handleTouchEnd } = useSwipeMonthNav((direction) => setYearMonth((m) => shiftMonth(m, direction)));
+  const beginRequest = useLatestRequestGuard();
 
   const weeks = getMonthWeeks(yearMonth);
 
+  // 캐시에 그 달이 있으면 월 전환과 같은 틱에 동기적으로 반영 — setYearMonth와 배치돼서 "잘못된 달이 잠깐 보이는" 프레임 없이 바로 맞는 화면(캐시)이 그려짐
+  const goToMonth = (next: string) => {
+    setYearMonth(next);
+    const cached = readExpenseCache()?.months[next];
+    if (cached) setRecords(cached);
+  };
+
+  const { handleTouchStart, handleTouchEnd } = useSwipeNav((direction) => goToMonth(shiftMonth(yearMonth, direction)));
+
   const fetchRecords = useCallback(() => {
-    const paddedStart = weeks[0].start;
-    const paddedEnd = weeks[weeks.length - 1].end;
-    setIsLoading(true);
-    return expenseApi.getByRange(paddedStart, paddedEnd)
-      .then(setRecords)
-      .catch((err) => showToast(err instanceof Error ? err.message : '불러오기에 실패했습니다', 'error'))
-      .finally(() => setIsLoading(false));
+    const requestedMonth = yearMonth;
+    const isStale = beginRequest();
+
+    const cache = readExpenseCache();
+    const cachedMonthRecords = cache?.months[requestedMonth];
+    // 캐시가 없는 진짜 첫 조회일 때만 로딩 표시. 캐시가 있으면 명시적으로 false로 되돌림 —
+    // 안 그러면 stale 처리된 이전 요청이 finally의 setIsLoading(false)를 건너뛰어 로딩 상태가 눌어붙을 수 있음
+    setIsLoading(!cachedMonthRecords);
+
+    const fetchFromServer = (months: Record<string, ExpenseRecord[]>, meta: ExpenseMeta | null) => {
+      const paddedStart = weeks[0].start;
+      const paddedEnd = weeks[weeks.length - 1].end;
+      expenseApi.getByRange(paddedStart, paddedEnd)
+        .then((data) => {
+          if (isStale()) return;
+          setRecords(data);
+          if (!meta) return;
+          const nextMonths = { ...months, [requestedMonth]: data };
+          // "지금 보고 있는 달"이 아니라 "오늘"(실제 현재 월) 기준 고정 범위 — 일정 관리와 동일한 패턴, 조회 위치가 바뀌어도 창이 안 움직여서 이 범위 안에서는 왔다갔다 해도 캐시가 안 지워짐
+          const keep = new Set([-1, 0, 1, 2, 3].map((offset) => shiftMonth(currentYearMonth(), offset)));
+          for (const key of Object.keys(nextMonths)) {
+            if (!keep.has(key)) delete nextMonths[key];
+          }
+          writeExpenseCache({ meta, months: nextMonths });
+        })
+        .catch((err) => { if (!isStale()) showToast(err instanceof Error ? err.message : '불러오기에 실패했습니다', 'error'); })
+        .finally(() => { if (!isStale()) setIsLoading(false); });
+    };
+
+    expenseApi.getMeta()
+      .then((meta) => {
+        if (isStale()) return;
+        const cacheValid = !!cache && isSameExpenseMeta(cache.meta, meta);
+        // 캐시가 이미 정확한 걸로 확인됨 — 화면엔 이미 그 데이터가 보이고 있으므로 더 할 일 없음
+        if (cacheValid && cachedMonthRecords) return;
+        fetchFromServer(cacheValid ? cache!.months : {}, meta);
+      })
+      // meta 확인 자체가 실패하면(오프라인 등) 캐시 검증을 포기하고 그냥 서버에서 직접 불러옴
+      .catch(() => { if (!isStale()) fetchFromServer({}, null); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearMonth, showToast]);
+  }, [yearMonth, showToast, beginRequest]);
 
   useEffect(() => {
     setExpandedCategory(null);
@@ -217,9 +264,9 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="flex items-center justify-center gap-3 px-4 py-2.5 border-b shrink-0">
-        <button onClick={() => setYearMonth((m) => shiftMonth(m, -1))} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">‹</button>
+        <button onClick={() => goToMonth(shiftMonth(yearMonth, -1))} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">‹</button>
         <span className="text-sm font-medium">{formatMonthLabel(yearMonth)}</span>
-        <button onClick={() => setYearMonth((m) => shiftMonth(m, 1))} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">›</button>
+        <button onClick={() => goToMonth(shiftMonth(yearMonth, 1))} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">›</button>
       </div>
 
       {isLoading ? (
@@ -290,36 +337,46 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
               const weekTotal = sumAmount(weekRecords);
               const days = weekDays(week, yearMonth, records);
               return (
-                <button
-                  key={week.start}
-                  onClick={() => setSelectedWeek(week)}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center justify-end px-1 mb-1">
+                <div key={week.start} className="px-3 py-2">
+                  {/* 주 총액 = 주간 상세로 이동하는 버튼 — 화살표 아이콘으로 눌러야 하는 영역임을 표시(날짜 칸과는 별개 클릭 영역) */}
+                  <button
+                    onClick={() => setSelectedWeek(week)}
+                    className="w-full flex items-center justify-end gap-1 px-1 py-1 mb-1 rounded hover:bg-gray-100 transition-colors"
+                  >
                     <span className={`text-xs ${weekTotal > 0 ? 'font-bold text-gray-900' : 'text-gray-300'}`}>
                       {formatAmount(weekTotal)}
                     </span>
-                  </div>
+                    <ArrowRightIcon className="w-3 h-3 text-gray-400" />
+                  </button>
                   <div className="grid grid-cols-7">
                     {days.map((day, i) => (
-                      <div
+                      <button
                         key={day.date}
+                        onClick={() => setSelectedDay(day.date)}
                         title={day.holidayName}
-                        className={`flex flex-col items-center justify-start py-1 gap-0.5 ${!day.inMonth ? 'opacity-30' : ''}`}
+                        className={`flex flex-col items-center justify-start py-1 gap-0.5 rounded hover:bg-gray-100 transition-colors ${!day.inMonth ? 'opacity-30' : ''}`}
                       >
                         <span className={`text-[10px] ${dayNumberColor(i, !!day.holidayName)}`}>{day.dayNum}</span>
                         <span className="text-[9px] font-semibold text-gray-700 h-3">
                           {formatAmountCompact(day.amount)}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
-                </button>
+                </div>
               );
             })}
             </div>
           </div>
         </>
+      )}
+
+      {selectedDay && (
+        <DayExpensesSheet
+          date={selectedDay}
+          records={records.filter((r) => r.expenseDate === selectedDay)}
+          onClose={() => setSelectedDay(null)}
+        />
       )}
     </div>
   );

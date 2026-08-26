@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import DayEventsSheet from './DayEventsSheet';
 import ScheduleForm from './ScheduleForm';
 import { SCHEDULE_CATEGORY_COLORS } from '@/constants/scheduleConfig';
-import { useSwipeMonthNav } from '@/hooks/useSwipeMonthNav';
+import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
+import { useSwipeNav } from '@/hooks/useSwipeNav';
 import { Toast } from '@/hooks/useToast';
 import { scheduleApi } from '@/services/api';
 import { ScheduleEvent, ScheduleMeta } from '@/types';
@@ -18,7 +19,7 @@ interface ScheduleCalendarTabProps {
   showConfirm: (message: string, onConfirm: () => void, isDestructive?: boolean) => void;
 }
 
-const WEEKDAY_HEADERS = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_HEADERS = ['월', '화', '수', '목', '금', '토', '일'];
 const DATE_HEADER_HEIGHT = 22;
 const LANE_HEIGHT = 20;
 // 일정이 없어도 데스크탑 캘린더 앱처럼 칸이 넉넉해 보이도록 하는 최소 높이
@@ -38,8 +39,7 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
   const [isLoading, setIsLoading] = useState(false);
   const [formState, setFormState] = useState<{ event?: ScheduleEvent; defaultDate?: string } | null>(null);
   const [daySheetDate, setDaySheetDate] = useState<string | null>(null);
-  // 요청 시작 시점의 월을 기록해뒀다가, 응답이 왔을 때 그사이 더 최신 요청이 나갔으면(빠른 스와이프 등) 무시 — 느린 응답이 최신 화면을 덮어쓰는 경쟁 상태 방지
-  const latestRequestedMonthRef = useRef<string | null>(null);
+  const beginRequest = useLatestRequestGuard();
 
   const gridDays = useMemo(() => getCalendarGridDays(yearMonth), [yearMonth]);
   const weeks = useMemo(() => chunkIntoWeeks(gridDays), [gridDays]);
@@ -53,8 +53,7 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
 
   const fetchEvents = useCallback(() => {
     const requestedMonth = yearMonth;
-    latestRequestedMonthRef.current = requestedMonth;
-    const isStale = () => latestRequestedMonthRef.current !== requestedMonth;
+    const isStale = beginRequest();
 
     const cache = readScheduleCache();
     const cachedMonthEvents = cache?.months[requestedMonth];
@@ -94,7 +93,7 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
       })
       // meta 확인 자체가 실패하면(오프라인 등) 캐시 검증을 포기하고 그냥 서버에서 직접 불러옴
       .catch(() => { if (!isStale()) fetchFromServer({}, null); });
-  }, [gridDays, yearMonth, showToast]);
+  }, [gridDays, yearMonth, showToast, beginRequest]);
 
   // 가계부 달력 탭(ExpenseCalendarTab)의 fetchRecords와 동일한 fetch-on-range-change 패턴
   useEffect(() => {
@@ -136,33 +135,32 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
     }
   };
 
-  const { handleTouchStart, handleTouchEnd } = useSwipeMonthNav((direction) => goToMonth(shiftMonth(yearMonth, direction)));
+  const { handleTouchStart, handleTouchEnd } = useSwipeNav((direction) => goToMonth(shiftMonth(yearMonth, direction)));
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <button onClick={() => goToMonth(shiftMonth(yearMonth, -1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
-          ‹
+      <div className="relative flex items-center justify-center px-4 py-3 border-b border-gray-100">
+        <button
+          onClick={() => goToMonth(currentYearMonth())}
+          disabled={yearMonth === currentYearMonth()}
+          className="absolute left-4 text-[11px] px-2 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+        >
+          오늘
         </button>
         <div className="flex items-center gap-2">
+          <button onClick={() => goToMonth(shiftMonth(yearMonth, -1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
+            ‹
+          </button>
           <span className="text-sm font-semibold">{formatMonthLabel(yearMonth)}</span>
-          {yearMonth !== currentYearMonth() && (
-            <button
-              onClick={() => goToMonth(currentYearMonth())}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-            >
-              오늘
-            </button>
-          )}
+          <button onClick={() => goToMonth(shiftMonth(yearMonth, 1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
+            ›
+          </button>
         </div>
-        <button onClick={() => goToMonth(shiftMonth(yearMonth, 1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
-          ›
-        </button>
       </div>
 
       <div className="grid grid-cols-7 text-center text-[11px] py-1.5 border-b border-gray-100 bg-gray-50">
         {WEEKDAY_HEADERS.map((label, i) => (
-          <span key={label} className={i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-400'}>
+          <span key={label} className={i === 6 ? 'text-red-500' : i === 5 ? 'text-blue-500' : 'text-gray-400'}>
             {label}
           </span>
         ))}

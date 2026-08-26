@@ -6,7 +6,7 @@ import { ArrowRightIcon, CalendarIcon, ScaleIcon, WalletIcon } from '@/component
 const SHORTCUTS = [
   { path: '/admin/weight', label: '체중 관리', description: '체중 기록 입력/그래프/전체 기록', Icon: ScaleIcon },
   { path: '/admin/expenses', label: '가계부 관리', description: '지출 달력/이력/통계', Icon: WalletIcon },
-  { path: '/admin/schedule', label: '일정 관리', description: '공유 캘린더', Icon: CalendarIcon },
+  { path: '/admin/schedule', label: '하민이네 일정', description: '공유 캘린더', Icon: CalendarIcon },
 ] as const;
 
 export default function ShortcutsTab() {

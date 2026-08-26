@@ -1,5 +1,7 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { clearExpenseCache } from '@/utils/expenseCache';
 import { clearScheduleCache } from '@/utils/scheduleCache';
+import { clearWeightCache } from '@/utils/weightCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -16,8 +18,10 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
-  // 로그아웃/토큰 만료 시 같이 쓰는 컴퓨터에 일정 내용이 localStorage에 남아있지 않도록 같이 정리
+  // 로그아웃/토큰 만료 시 같이 쓰는 컴퓨터에 일정/체중/가계부 내용이 localStorage에 남아있지 않도록 같이 정리
   clearScheduleCache();
+  clearWeightCache();
+  clearExpenseCache();
 }
 
 export function isLoggedIn(): boolean {
@@ -189,6 +193,11 @@ export const weightApi = {
     return fetchApi<WeightRecord[]>('/weights');
   },
 
+  // 로컬(localStorage) 캐시 검증용 — 전체 목록 대신 count/lastModified만 가볍게 확인
+  getMeta: () => {
+    return fetchApi<WeightMeta>('/weights/meta');
+  },
+
   upsert: (record: WeightRecordUpsertPayload) => {
     return fetchApi<WeightRecord>('/weights', {
       method: 'POST',
@@ -207,6 +216,11 @@ export const expenseApi = {
   getByRange: (startDate: string, endDate: string, includeDeleted?: boolean) => {
     const query = new URLSearchParams({ startDate, endDate, includeDeleted: String(includeDeleted ?? false) });
     return fetchApi<ExpenseRecord[]>(`/expenses?${query.toString()}`);
+  },
+
+  // 로컬(localStorage) 캐시 검증용 — 전체 목록 대신 count/lastModified만 가볍게 확인
+  getMeta: () => {
+    return fetchApi<ExpenseMeta>('/expenses/meta');
   },
 
   create: (record: ExpenseRecordPayload) => {
