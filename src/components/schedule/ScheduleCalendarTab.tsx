@@ -33,7 +33,8 @@ interface EventSpan {
 
 export default function ScheduleCalendarTab({ showToast, showConfirm }: ScheduleCalendarTabProps) {
   const [yearMonth, setYearMonth] = useState(currentYearMonth);
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  // 초기 렌더 시점에 캐시를 동기적으로 읽어서 첫 페인트부터 바로 그려지게 함(네트워크 대기로 인한 빈 화면 깜빡임 방지) — 실제로 최신인지는 마운트 후 백그라운드에서 검증
+  const [events, setEvents] = useState<ScheduleEvent[]>(() => readScheduleCache()?.months[currentYearMonth()] ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const [formState, setFormState] = useState<{ event?: ScheduleEvent; defaultDate?: string } | null>(null);
   const [daySheetDate, setDaySheetDate] = useState<string | null>(null);
@@ -43,14 +44,26 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
   const gridDays = useMemo(() => getCalendarGridDays(yearMonth), [yearMonth]);
   const weeks = useMemo(() => chunkIntoWeeks(gridDays), [gridDays]);
 
+  // 캐시에 그 달이 있으면 월 전환과 같은 틱에 동기적으로 반영 — setYearMonth와 배치돼서 "잘못된 달이 잠깐 보이는" 프레임 없이 바로 맞는 화면(캐시)이 그려짐
+  const goToMonth = (next: string) => {
+    setYearMonth(next);
+    const cached = readScheduleCache()?.months[next];
+    if (cached) setEvents(cached);
+  };
+
   const fetchEvents = useCallback(() => {
     const requestedMonth = yearMonth;
     latestRequestedMonthRef.current = requestedMonth;
     const isStale = () => latestRequestedMonthRef.current !== requestedMonth;
 
-    // meta가 있으면(캐시 검증 성공) 정상 캐시에 반영, null이면(meta 확인 자체가 실패) 캐시는 안 건드리고 결과만 화면에 반영
-    const fetchAndMaybeCache = (months: Record<string, ScheduleEvent[]>, meta: ScheduleMeta | null) => {
-      setIsLoading(true);
+    const cache = readScheduleCache();
+    const cachedMonthEvents = cache?.months[requestedMonth];
+    // 캐시가 없는 진짜 첫 조회일 때만 로딩 표시. 캐시가 있으면 명시적으로 false로 되돌림 —
+    // 안 그러면 "캐시 없는 달로 갔다가(true) 응답 오기 전에 캐시 있는 달로 돌아오는" 경우
+    // 이전 요청이 stale 처리되며 finally의 setIsLoading(false)를 건너뛰어서 로딩 상태가 계속 눌어붙어 있었음
+    setIsLoading(!cachedMonthEvents);
+
+    const fetchFromServer = (months: Record<string, ScheduleEvent[]>, meta: ScheduleMeta | null) => {
       const start = `${gridDays[0]}T00:00:00`;
       const end = `${gridDays[gridDays.length - 1]}T23:59:59`;
       scheduleApi.getEvents(start, end)
@@ -59,7 +72,9 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
           setEvents(data);
           if (!meta) return;
           const nextMonths = { ...months, [requestedMonth]: data };
-          const keep = new Set([shiftMonth(requestedMonth, -1), requestedMonth, shiftMonth(requestedMonth, 1)]);
+          // "지금 보고 있는 달" 기준이 아니라 "오늘(실제 현재 월)" 기준 고정 범위 — 조회 위치가 바뀌어도 창 자체가 안 움직여서
+          // 이 범위 안에서는 아무리 왔다갔다 해도 캐시가 밀려나지 않음(전엔 방문한 달 기준으로 계산해서 왕복 시 밀려나는 문제가 있었음)
+          const keep = new Set([-1, 0, 1, 2, 3].map((offset) => shiftMonth(currentYearMonth(), offset)));
           for (const key of Object.keys(nextMonths)) {
             if (!keep.has(key)) delete nextMonths[key];
           }
@@ -72,16 +87,13 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
     scheduleApi.getMeta()
       .then((meta) => {
         if (isStale()) return;
-        const cache = readScheduleCache();
         const cacheValid = !!cache && isSameScheduleMeta(cache.meta, meta);
-        if (cacheValid && cache!.months[requestedMonth]) {
-          setEvents(cache!.months[requestedMonth]);
-          return;
-        }
-        fetchAndMaybeCache(cacheValid ? cache!.months : {}, meta);
+        // 캐시가 이미 정확한 걸로 확인됨 — 화면엔 이미 그 데이터가 보이고 있으므로 더 할 일 없음
+        if (cacheValid && cachedMonthEvents) return;
+        fetchFromServer(cacheValid ? cache!.months : {}, meta);
       })
       // meta 확인 자체가 실패하면(오프라인 등) 캐시 검증을 포기하고 그냥 서버에서 직접 불러옴
-      .catch(() => { if (!isStale()) fetchAndMaybeCache({}, null); });
+      .catch(() => { if (!isStale()) fetchFromServer({}, null); });
   }, [gridDays, yearMonth, showToast]);
 
   // 가계부 달력 탭(ExpenseCalendarTab)의 fetchRecords와 동일한 fetch-on-range-change 패턴
@@ -124,26 +136,26 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
     }
   };
 
-  const { handleTouchStart, handleTouchEnd } = useSwipeMonthNav((direction) => setYearMonth((ym) => shiftMonth(ym, direction)));
+  const { handleTouchStart, handleTouchEnd } = useSwipeMonthNav((direction) => goToMonth(shiftMonth(yearMonth, direction)));
 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <button onClick={() => setYearMonth((ym) => shiftMonth(ym, -1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
+        <button onClick={() => goToMonth(shiftMonth(yearMonth, -1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
           ‹
         </button>
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">{formatMonthLabel(yearMonth)}</span>
           {yearMonth !== currentYearMonth() && (
             <button
-              onClick={() => setYearMonth(currentYearMonth())}
+              onClick={() => goToMonth(currentYearMonth())}
               className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
             >
               오늘
             </button>
           )}
         </div>
-        <button onClick={() => setYearMonth((ym) => shiftMonth(ym, 1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
+        <button onClick={() => goToMonth(shiftMonth(yearMonth, 1))} className="text-gray-400 hover:text-gray-600 px-2 transition-colors">
           ›
         </button>
       </div>
