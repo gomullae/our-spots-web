@@ -1,0 +1,22 @@
+{
+  "name": "가계부 관리",
+  "short_name": "가계부 관리",
+  "description": "OurSpots 가계부 관리",
+  "start_url": "/admin/expenses",
+  "scope": "/admin/expenses",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1E293B",
+  "icons": [
+    {
+      "src": "/icon-expense-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-expense-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

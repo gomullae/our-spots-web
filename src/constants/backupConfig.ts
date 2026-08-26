@@ -8,6 +8,7 @@ export const BACKUP_TABLE_LABELS: Record<BackupTable, string> = {
   FEEDBACKS: '방명록',
   ERROR_LOGS: '에러 로그',
   ACCESS_DENIED_LOGS: '비정상 접근',
+  SCHEDULE_EVENTS: '일정',
 };
 
 export const BACKUP_PERIOD_LABELS: Record<BackupPeriod, string> = {

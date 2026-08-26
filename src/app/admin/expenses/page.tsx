@@ -33,7 +33,7 @@ export default function ExpenseAdminPage() {
   const [tab, setTab] = useState<Tab>('calendar');
 
   return (
-    <AdminPageShell auth={auth} title="가계부 관리">
+    <AdminPageShell auth={auth} title="가계부 관리" showBackButton={false}>
       <div className="flex border-b shrink-0">
         {TABS.map((t) => (
           <button

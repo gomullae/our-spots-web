@@ -18,7 +18,7 @@ import FeedbackModal from '@/components/FeedbackModal';
 import SearchResultsPanel from '@/components/SearchResultsPanel';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
-import { LocationPinIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, ScaleIcon, SettingsIcon, WalletIcon } from '@/components/icons';
+import { LocationPinIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, SettingsIcon } from '@/components/icons';
 import { mapApi, placeApi } from '@/services/api';
 import { Marker } from '@/types';
 import { useMarkerFilter } from '@/hooks/useMarkerFilter';
@@ -424,16 +424,6 @@ function Home() {
 
       {/* Floating action buttons - bottom left */}
       <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-10 flex flex-col gap-2">
-        {auth.isAuthenticated && (
-          <FloatingIconButton onClick={() => router.push('/admin/expenses')} title="가계부 관리">
-            <WalletIcon className="w-5 h-5 text-gray-600" />
-          </FloatingIconButton>
-        )}
-        {auth.isAuthenticated && (
-          <FloatingIconButton onClick={() => router.push('/admin/weight')} title="체중 관리">
-            <ScaleIcon className="w-5 h-5 text-gray-600" />
-          </FloatingIconButton>
-        )}
         {auth.isAuthenticated && (
           <FloatingIconButton onClick={() => router.push('/admin/places')} title="관리">
             <SettingsIcon className="w-5 h-5 text-gray-600" />

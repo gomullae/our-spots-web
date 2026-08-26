@@ -5,17 +5,19 @@ import AdminPageShell from '@/components/AdminPageShell';
 import PlacesListTab from '@/components/admin/PlacesListTab';
 import OpsToolsTab from '@/components/admin/OpsToolsTab';
 import LogHistoryTab from '@/components/admin/LogHistoryTab';
+import ShortcutsTab from '@/components/admin/ShortcutsTab';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 
-type Tab = 'ops' | 'recent' | 'logs';
+type Tab = 'ops' | 'recent' | 'logs' | 'shortcuts';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'ops', label: '운영 도구' },
   { key: 'recent', label: '최근 등록 장소' },
   { key: 'logs', label: '로그 이력' },
+  { key: 'shortcuts', label: '바로가기' },
 ];
 
 export default function AdminPlacesPage() {
@@ -35,12 +37,12 @@ export default function AdminPlacesPage() {
 
   return (
     <AdminPageShell auth={auth} title="관리">
-      <div className="flex border-b shrink-0">
+      <div className="flex justify-evenly overflow-x-scroll touch-pan-x border-b shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 text-center py-2.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors ${
               tab === t.key ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400'
             }`}
           >
@@ -52,6 +54,7 @@ export default function AdminPlacesPage() {
       {tab === 'ops' && <OpsToolsTab showToast={showToast} />}
       {tab === 'recent' && <PlacesListTab showToast={showToast} showConfirm={showConfirm} />}
       {tab === 'logs' && <LogHistoryTab showToast={showToast} />}
+      {tab === 'shortcuts' && <ShortcutsTab />}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       {confirmState && (

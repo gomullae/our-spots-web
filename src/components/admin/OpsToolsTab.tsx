@@ -11,7 +11,7 @@ interface OpsToolsTabProps {
   showToast: (message: string, type?: Toast['type']) => void;
 }
 
-const BACKUP_TABLE_OPTIONS: BackupTable[] = ['PLACES', 'EXPENSE_RECORDS', 'WEIGHT_RECORDS', 'LOGIN_ATTEMPTS', 'FEEDBACKS'];
+const BACKUP_TABLE_OPTIONS: BackupTable[] = ['PLACES', 'EXPENSE_RECORDS', 'WEIGHT_RECORDS', 'SCHEDULE_EVENTS', 'LOGIN_ATTEMPTS', 'FEEDBACKS'];
 
 export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);

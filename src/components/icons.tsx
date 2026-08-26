@@ -148,3 +148,12 @@ export function SettingsIcon({ className = 'w-5 h-5' }: IconProps) {
     </svg>
   );
 }
+
+export function CalendarIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect x="4" y="5" width="16" height="15" rx="2" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16M8 3v3M16 3v3" />
+    </svg>
+  );
+}

@@ -37,10 +37,7 @@ export default function WeightAdminPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!auth.isAuthenticated) {
-      auth.setShowLoginModal(true);
-      return;
-    }
+    if (!auth.isAuthenticated) return;
     setIsLoading(true);
     weightApi.getAll()
       .then(setRecords)
@@ -61,7 +58,7 @@ export default function WeightAdminPage() {
   };
 
   return (
-    <AdminPageShell auth={auth} title="체중 관리">
+    <AdminPageShell auth={auth} title="체중 관리" showBackButton={false}>
       <div className="flex border-b shrink-0">
         {TABS.map(t => (
           <button

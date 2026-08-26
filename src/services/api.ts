@@ -1,4 +1,5 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, TableData, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { clearScheduleCache } from '@/utils/scheduleCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
@@ -15,6 +16,8 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  // 로그아웃/토큰 만료 시 같이 쓰는 컴퓨터에 일정 내용이 localStorage에 남아있지 않도록 같이 정리
+  clearScheduleCache();
 }
 
 export function isLoggedIn(): boolean {
@@ -283,6 +286,44 @@ export const feedbackApi = {
     return fetchApi<void>('/feedbacks', {
       method: 'POST',
       body: JSON.stringify({ content }),
+    });
+  },
+};
+
+export const scheduleApi = {
+  getEvents: (start: string, end: string, includeDeleted?: boolean) => {
+    const query = new URLSearchParams({ start, end, includeDeleted: String(includeDeleted ?? false) });
+    return fetchApi<ScheduleEvent[]>(`/schedules?${query.toString()}`);
+  },
+
+  // 로컬(localStorage) 캐시 검증용 — 전체 목록 대신 count/lastModified만 가볍게 확인
+  getMeta: () => {
+    return fetchApi<ScheduleMeta>('/schedules/meta');
+  },
+
+  create: (event: ScheduleEventPayload) => {
+    return fetchApi<ScheduleEvent>('/schedules', {
+      method: 'POST',
+      body: JSON.stringify(event),
+    });
+  },
+
+  update: (id: number, event: ScheduleEventPayload) => {
+    return fetchApi<ScheduleEvent>(`/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(event),
+    });
+  },
+
+  delete: (id: number) => {
+    return fetchApi<void>(`/schedules/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  restore: (id: number) => {
+    return fetchApi<ScheduleEvent>(`/schedules/${id}/restore`, {
+      method: 'POST',
     });
   },
 };

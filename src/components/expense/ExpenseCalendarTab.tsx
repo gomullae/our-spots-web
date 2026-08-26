@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Pagination from '@/components/Pagination';
+import { useSwipeMonthNav } from '@/hooks/useSwipeMonthNav';
 import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
 import { ExpenseCategory, ExpenseRecord } from '@/types';
@@ -68,6 +69,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
   const [budgetInput, setBudgetInput] = useState('420000');
   const [isSending, setIsSending] = useState(false);
+  const { handleTouchStart, handleTouchEnd } = useSwipeMonthNav((direction) => setYearMonth((m) => shiftMonth(m, direction)));
 
   const weeks = getMonthWeeks(yearMonth);
 
@@ -273,16 +275,17 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
             })()}
           </div>
 
-          <div className="grid grid-cols-7 px-3 pt-2 pb-1">
-            {WEEKDAY_LABELS.map((label, i) => (
-              <div key={label} className={`text-center text-[10px] font-medium ${weekdayColor(i, true)}`}>
-                {label}
-              </div>
-            ))}
-          </div>
+          <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <div className="grid grid-cols-7 px-3 pt-2 pb-1">
+              {WEEKDAY_LABELS.map((label, i) => (
+                <div key={label} className={`text-center text-[10px] font-medium ${weekdayColor(i, true)}`}>
+                  {label}
+                </div>
+              ))}
+            </div>
 
-          <div className="divide-y divide-gray-100">
-            {weeks.map((week) => {
+            <div className="divide-y divide-gray-100">
+              {weeks.map((week) => {
               const weekRecords = records.filter((r) => inRange(r, week));
               const weekTotal = sumAmount(weekRecords);
               const days = weekDays(week, yearMonth, records);
@@ -314,6 +317,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
                 </button>
               );
             })}
+            </div>
           </div>
         </>
       )}
