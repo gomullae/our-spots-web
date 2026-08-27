@@ -1,5 +1,7 @@
 'use client';
 
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+
 interface ConfirmModalProps {
   message: string;
   isDestructive?: boolean;
@@ -8,6 +10,9 @@ interface ConfirmModalProps {
 }
 
 export default function ConfirmModal({ message, isDestructive, onConfirm, onCancel }: ConfirmModalProps) {
+  // Esc는 항상 "취소"로 처리 — 삭제 등 위험한 동작을 실수로 확정시키면 안 되므로
+  useEscapeKey(onCancel);
+
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onCancel} />

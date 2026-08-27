@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import PhotoLightbox from '@/components/PhotoLightbox';
+import RetryImage from '@/components/RetryImage';
 import { PlaceDetail as PlaceDetailType, PlaceType } from '@/types';
 import { TYPE_CONFIG, getGradeLabel, PANEL_DIMENSIONS } from '@/constants/placeConfig';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { clampPosition } from '@/utils/position';
 import { openNaverDirections } from '@/utils/naverMap';
 import { CloseIcon, CopyIcon, CheckIcon, SearchIcon, ArrowRightIcon, CurrentLocationIcon } from '@/components/icons';
@@ -23,6 +26,7 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const linkTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -40,6 +44,9 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
   useEffect(() => {
     if (position) setTranslateY(0);
   }, [position]);
+
+  // PC에서 Esc로 닫기 — 패널이 실제로 열려있을 때만 리스닝
+  useEscapeKey(onClose, !!position);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     setIsDragging(true);
@@ -258,6 +265,24 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
             </p>
           )}
 
+          {/* Photos */}
+          {place.photos.length > 0 && (
+            <div>
+              <p className="text-[11px] font-medium text-gray-400 mb-1.5">사진 {place.photos.length}장</p>
+              <div className="flex gap-1.5 overflow-x-auto -mx-3 px-3 pb-0.5">
+                {place.photos.map((photo, i) => (
+                  <RetryImage
+                    key={photo.id}
+                    src={photo.thumbnailUrl || photo.url}
+                    alt=""
+                    onClick={() => setLightboxIndex(i)}
+                    className="w-16 h-16 rounded-lg object-cover shrink-0 cursor-pointer border border-gray-200"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2 border-t mt-3">
             <button
@@ -323,6 +348,14 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
           {content}
         </div>
       </div>
+
+      {place && lightboxIndex !== null && (
+        <PhotoLightbox
+          urls={place.photos.map((p) => p.url)}
+          startIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </>
   );
 }

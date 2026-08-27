@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { CloseIcon } from '@/components/icons';
+import PhotoUploadSection, { PendingPhoto } from '@/components/PhotoUploadSection';
 import { SCHEDULE_CATEGORIES, SCHEDULE_CATEGORY_COLORS, SCHEDULE_CATEGORY_LABELS } from '@/constants/scheduleConfig';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { Toast } from '@/hooks/useToast';
-import { scheduleApi } from '@/services/api';
+import { photoApi, scheduleApi } from '@/services/api';
 import { ScheduleCategory, ScheduleEvent } from '@/types';
 
 interface ScheduleFormProps {
@@ -28,6 +30,11 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
   const [memo, setMemo] = useState(event?.memo ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  // 아직 confirm 안 된 새 사진들의 objectKey — 저장 성공 후 이 일정의 id로 confirm됨
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  // 사진이 아직 업로드 중이면 저장 버튼을 막음 — 안 그러면 업로드가 덜 끝난 사진이 저장 시점에 조용히 누락될 수 있음
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  useEscapeKey(onClose);
 
   const isValid = title.trim().length > 0 && startDate !== '' && (!allDay || (endDate !== '' && endDate >= startDate));
 
@@ -45,12 +52,10 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
         allDay,
         memo: memo.trim() || undefined,
       };
-      if (isEditMode) {
-        await scheduleApi.update(event.id, payload);
-        showToast('일정을 수정했습니다', 'success');
-      } else {
-        await scheduleApi.create(payload);
-        showToast('일정을 추가했습니다', 'success');
+      const saved = isEditMode ? await scheduleApi.update(event.id, payload) : await scheduleApi.create(payload);
+      showToast(isEditMode ? '일정을 수정했습니다' : '일정을 추가했습니다', 'success');
+      if (pendingPhotos.length > 0) {
+        await Promise.all(pendingPhotos.map((p) => photoApi.confirm('SCHEDULE_EVENT', saved.id, p.objectKey, p.thumbnailObjectKey)));
       }
       onSaved();
     } catch (err) {
@@ -173,6 +178,15 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
             />
           </div>
 
+          <PhotoUploadSection
+            entityType="SCHEDULE_EVENT"
+            initialPhotos={event?.photos ?? []}
+            onPendingChange={setPendingPhotos}
+            onUploadingChange={setIsPhotoUploading}
+            showToast={showToast}
+            showConfirm={showConfirm}
+          />
+
           {error && <p className="text-xs text-red-500">{error}</p>}
 
           <div className="flex gap-2">
@@ -187,10 +201,10 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
             )}
             <button
               type="submit"
-              disabled={!isValid || isSubmitting}
+              disabled={!isValid || isSubmitting || isPhotoUploading}
               className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium text-sm hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? '저장 중...' : isEditMode ? '수정' : '저장'}
+              {isSubmitting ? '저장 중...' : isPhotoUploading ? '사진 업로드 중...' : isEditMode ? '수정' : '저장'}
             </button>
           </div>
         </form>

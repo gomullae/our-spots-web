@@ -8,7 +8,10 @@ interface ScheduleLocalCache {
   months: Record<string, ScheduleEvent[]>;
 }
 
-const CACHE_KEY = 'schedule-cache-v1';
+// v1 → v2: ScheduleEvent에 photos 필드가 추가되면서, 그 이전에 저장된 캐시는 이 필드가 없어
+// event.photos.length 같은 접근에서 런타임 에러가 났음 — 캐시 데이터 구조가 바뀌면 키를 올려서
+// 예전 캐시를 그냥 버리고 새로 받아오게 함(meta 비교만으론 "필드가 새로 생긴 것" 자체는 못 잡아냄)
+const CACHE_KEY = 'schedule-cache-v2';
 
 export function readScheduleCache(): ScheduleLocalCache | null {
   try {

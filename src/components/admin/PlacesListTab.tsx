@@ -91,9 +91,10 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
   const handleIncludeDeletedChange = (value: boolean) => applyFilter(setIncludeDeleted, value);
 
   const handleUpdatePlace = async (data: PlaceFormData) => {
-    if (!editingPlace) return;
+    if (!editingPlace) throw new Error('수정할 장소를 찾을 수 없습니다');
     const updated = await placeApi.update(editingPlace.id, data);
     setPlaces((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    return updated;
   };
 
   const handleRestore = async (place: Place) => {
@@ -375,10 +376,13 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
           initialType={editingPlace.type}
           initialDescription={editingPlace.description}
           initialGrade={editingPlace.grade}
+          initialPhotos={editingPlace.photos}
           isEditMode
           isAuthenticated
           onSubmit={handleUpdatePlace}
           onClose={() => setEditingPlace(null)}
+          showToast={showToast}
+          showConfirm={showConfirm}
         />
       )}
     </>

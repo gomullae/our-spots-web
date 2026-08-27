@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -25,6 +26,13 @@ export default function LoginModal({
     }
   }, [isOpen]);
 
+  const handleClose = () => {
+    setPassword('');
+    onClose();
+  };
+
+  useEscapeKey(handleClose, isOpen);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -32,11 +40,6 @@ export default function LoginModal({
     if (password.trim()) {
       onConfirm(password);
     }
-  };
-
-  const handleClose = () => {
-    setPassword('');
-    onClose();
   };
 
   return (

@@ -1,7 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { PlaceType } from '@/types';
+import PhotoUploadSection, { PendingPhoto } from '@/components/PhotoUploadSection';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { Toast } from '@/hooks/useToast';
+import { photoApi } from '@/services/api';
+import { Photo, Place, PlaceType } from '@/types';
 import { TYPE_CONFIG, GRADE_CONFIG, PUBLIC_TYPES, PERSONAL_TYPES } from '@/constants/placeConfig';
 import { CloseIcon } from '@/components/icons';
 
@@ -13,10 +17,15 @@ interface PlaceFormProps {
   initialType?: PlaceType;
   initialDescription?: string;
   initialGrade?: number;
+  // 수정 모드에서 이미 첨부된 사진 — 신규 등록은 항상 빈 배열
+  initialPhotos?: Photo[];
   isEditMode?: boolean;
   isAuthenticated: boolean;
-  onSubmit: (data: PlaceFormData) => Promise<void>;
+  // 저장 성공 후 생성/수정된 장소(id 포함)를 반환해야 그 시점에 첨부 사진을 confirm()할 수 있음
+  onSubmit: (data: PlaceFormData) => Promise<Place>;
   onClose: () => void;
+  showToast: (message: string, type?: Toast['type']) => void;
+  showConfirm: (message: string, onConfirm: () => void, isDestructive?: boolean) => void;
 }
 
 export interface PlaceFormData {
@@ -29,7 +38,7 @@ export interface PlaceFormData {
   grade?: number;
 }
 
-export default function PlaceForm({ latitude, longitude, initialAddress, initialName, initialType, initialDescription, initialGrade, isEditMode, isAuthenticated, onSubmit, onClose }: PlaceFormProps) {
+export default function PlaceForm({ latitude, longitude, initialAddress, initialName, initialType, initialDescription, initialGrade, initialPhotos, isEditMode, isAuthenticated, onSubmit, onClose, showToast, showConfirm }: PlaceFormProps) {
   const [name, setName] = useState(initialName || '');
   const [type, setType] = useState<PlaceType>(initialType || 'RESTAURANT');
   const [address, setAddress] = useState(initialAddress || '');
@@ -37,6 +46,11 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
   const [grade, setGrade] = useState<number>(initialGrade || 3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  // 아직 확정(confirm) 안 된 새 사진들 — 저장 성공 후 이 장소의 id로 confirm됨
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  // 사진이 아직 업로드 중이면 저장 버튼을 막음 — 안 그러면 업로드가 덜 끝난 사진이 저장 시점에 조용히 누락될 수 있음
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  useEscapeKey(onClose);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +62,7 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
     setError(undefined);
     setIsSubmitting(true);
     try {
-      await onSubmit({
+      const saved = await onSubmit({
         name: name.trim(),
         type,
         address: address.trim(),
@@ -57,6 +71,9 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
         description: description.trim(),
         grade,
       });
+      if (pendingPhotos.length > 0) {
+        await Promise.all(pendingPhotos.map((p) => photoApi.confirm('PLACE', saved.id, p.objectKey, p.thumbnailObjectKey)));
+      }
       onClose();
     } catch (err) {
       console.error('Failed to save place:', err);
@@ -183,10 +200,15 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
             />
           </div>
 
-          {/* Coordinates */}
-          <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-            좌표: {latitude.toFixed(6)}, {longitude.toFixed(6)}
-          </div>
+          {/* Photos */}
+          <PhotoUploadSection
+            entityType="PLACE"
+            initialPhotos={initialPhotos ?? []}
+            onPendingChange={setPendingPhotos}
+            onUploadingChange={setIsPhotoUploading}
+            showToast={showToast}
+            showConfirm={showConfirm}
+          />
 
           {/* Error */}
           {error && (
@@ -196,10 +218,10 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
           {/* Submit */}
           <button
             type="submit"
-            disabled={!name.trim() || !address.trim() || isSubmitting}
+            disabled={!name.trim() || !address.trim() || isSubmitting || isPhotoUploading}
             className="w-full py-2.5 bg-blue-500 text-white rounded-lg font-medium text-sm hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            {isSubmitting ? '저장 중...' : isEditMode ? '수정' : '저장'}
+            {isSubmitting ? '저장 중...' : isPhotoUploading ? '사진 업로드 중...' : isEditMode ? '수정' : '저장'}
           </button>
         </form>
       </div>

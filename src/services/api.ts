@@ -1,4 +1,4 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Place, PlaceDetail, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Photo, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 import { clearExpenseCache } from '@/utils/expenseCache';
 import { clearScheduleCache } from '@/utils/scheduleCache';
 import { clearWeightCache } from '@/utils/weightCache';
@@ -6,6 +6,15 @@ import { clearWeightCache } from '@/utils/weightCache';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
 const TOKEN_KEY = 'admin_token';
+
+// 호출부가 특정 HTTP 상태(예: 404 = 이미 지워짐)에 따라 다르게 대응해야 할 때 사용 — Error를 상속해서
+// 기존의 `err instanceof Error` 체크는 그대로 다 통과함
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -66,7 +75,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   const data: ApiResponse<T> = JSON.parse(text);
 
   if (!data.success) {
-    throw new Error(data.error || 'API request failed');
+    throw new ApiError(data.error || 'API request failed', res.status);
   }
 
   return data.data as T;
@@ -141,7 +150,7 @@ export const placeApi = {
     return fetchApi<PlaceDetail>(`/places/${id}`);
   },
 
-  create: (place: Omit<Place, 'id' | 'createdAt' | 'updatedAt'>) => {
+  create: (place: Omit<Place, 'id' | 'createdAt' | 'updatedAt' | 'photos'>) => {
     return fetchApi<Place>('/places', {
       method: 'POST',
       body: JSON.stringify(place),
@@ -338,6 +347,29 @@ export const scheduleApi = {
   restore: (id: number) => {
     return fetchApi<ScheduleEvent>(`/schedules/${id}/restore`, {
       method: 'POST',
+    });
+  },
+};
+
+// 장소/일정 공용 사진 업로드 — presign으로 받은 uploadUrl에는 브라우저가 R2로 직접 PUT(서버를 거치지 않음, photoUpload.ts 참고)
+export const photoApi = {
+  presign: (entityType: PhotoEntityType, contentType: string) => {
+    return fetchApi<PhotoPresignResponse>('/photos/presign', {
+      method: 'POST',
+      body: JSON.stringify({ entityType, contentType }),
+    });
+  },
+
+  confirm: (entityType: PhotoEntityType, entityId: number, objectKey: string, thumbnailObjectKey: string) => {
+    return fetchApi<Photo>('/photos/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ entityType, entityId, objectKey, thumbnailObjectKey }),
+    });
+  },
+
+  delete: (id: number) => {
+    return fetchApi<void>(`/photos/${id}`, {
+      method: 'DELETE',
     });
   },
 };

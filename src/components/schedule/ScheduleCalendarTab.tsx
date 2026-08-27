@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DayEventsSheet from './DayEventsSheet';
+import ScheduleEventDetail from './ScheduleEventDetail';
 import ScheduleForm from './ScheduleForm';
 import { SCHEDULE_CATEGORY_COLORS } from '@/constants/scheduleConfig';
 import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
@@ -39,6 +40,8 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
   const [isLoading, setIsLoading] = useState(false);
   const [formState, setFormState] = useState<{ event?: ScheduleEvent; defaultDate?: string } | null>(null);
   const [daySheetDate, setDaySheetDate] = useState<string | null>(null);
+  // 타임트리처럼 일정을 누르면 바로 수정 폼이 아니라 읽기 전용 상세보기가 먼저 뜸 — 편집은 거기서 "⋯" 메뉴로 진입
+  const [detailEvent, setDetailEvent] = useState<ScheduleEvent | null>(null);
   const beginRequest = useLatestRequestGuard();
 
   const gridDays = useMemo(() => getCalendarGridDays(yearMonth), [yearMonth]);
@@ -100,6 +103,7 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFormState(null);
     setDaySheetDate(null);
+    setDetailEvent(null);
     fetchEvents();
   }, [fetchEvents]);
 
@@ -188,7 +192,7 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
                       <div
                         key={day}
                         onClick={() => handleDayClick(day)}
-                        className="border-r border-gray-100 last:border-r-0 px-1 pt-0.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                        className={`border-r border-gray-100 last:border-r-0 px-1 pt-0.5 cursor-pointer hover:bg-gray-50 transition-colors ${isToday ? 'bg-gray-100' : ''}`}
                       >
                         <span
                           className={`text-[11px] ${isToday ? 'font-bold' : ''} ${
@@ -220,7 +224,7 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
                     return (
                       <div
                         key={span.event.id}
-                        onClick={(e) => { e.stopPropagation(); setFormState({ event: span.event }); }}
+                        onClick={(e) => { e.stopPropagation(); setDetailEvent(span.event); }}
                         className={`pointer-events-auto ${isTrueStart ? 'ml-0.5' : ''} ${isTrueEnd ? 'mr-0.5' : ''} my-px px-1.5 ${roundedClass} flex items-center justify-between gap-1 text-[10px] font-medium cursor-pointer hover:brightness-95 hover:shadow-sm transition ${colors.bg} ${colors.text}`}
                         style={{ gridColumn: `${colStart + 1} / span ${colSpan}`, gridRow: span.lane + 1 }}
                       >
@@ -244,7 +248,19 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
           events={daySheetEvents}
           onClose={() => setDaySheetDate(null)}
           onAdd={() => { setFormState({ defaultDate: daySheetDate }); setDaySheetDate(null); }}
-          onSelectEvent={(event) => { setFormState({ event }); setDaySheetDate(null); }}
+          onSelectEvent={(event) => { setDetailEvent(event); setDaySheetDate(null); }}
+        />
+      )}
+
+      {detailEvent && (
+        <ScheduleEventDetail
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          onEdit={() => { setFormState({ event: detailEvent }); setDetailEvent(null); }}
+          onDeleted={() => { setDetailEvent(null); handleDeleted(); }}
+          onChanged={fetchEvents}
+          showToast={showToast}
+          showConfirm={showConfirm}
         />
       )}
 

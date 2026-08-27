@@ -402,6 +402,8 @@ function Home() {
           isAuthenticated={auth.isAuthenticated}
           onSubmit={place.handleCreatePlace}
           onClose={place.handleCloseForm}
+          showToast={showToast}
+          showConfirm={showConfirm}
         />
       )}
 
@@ -415,10 +417,13 @@ function Home() {
           initialType={place.editingPlace.type}
           initialDescription={place.editingPlace.description}
           initialGrade={place.editingPlace.grade}
+          initialPhotos={place.editingPlace.photos}
           isEditMode
           isAuthenticated={auth.isAuthenticated}
           onSubmit={place.handleUpdatePlace}
           onClose={place.handleCloseForm}
+          showToast={showToast}
+          showConfirm={showConfirm}
         />
       )}
 

@@ -16,6 +16,24 @@ export interface Place {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  photos: Photo[];
+}
+
+// 장소/일정이 공용으로 쓰는 사진 — Cloudflare R2에 업로드된 파일의 메타데이터만 DB/응답에 실림
+export type PhotoEntityType = 'PLACE' | 'SCHEDULE_EVENT';
+
+export interface Photo {
+  id: number;
+  url: string;
+  // 목록/썸네일용 축소본 — 이 기능 추가 전에 올라간 사진은 빈 문자열일 수 있어(원본으로 대체 표시)
+  thumbnailUrl: string;
+  displayOrder: number;
+}
+
+export interface PhotoPresignResponse {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
 }
 
 export type PlaceDetail = Place;
@@ -125,6 +143,7 @@ export interface ScheduleEvent {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  photos: Photo[];
 }
 
 export interface ScheduleEventPayload {

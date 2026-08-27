@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { placeApi } from '@/services/api';
-import { Marker, PlaceDetail as PlaceDetailType } from '@/types';
+import { Marker, Place, PlaceDetail as PlaceDetailType } from '@/types';
 import { PlaceFormData } from '@/components/PlaceForm';
 import { MAP_ZOOM } from '@/constants/placeConfig';
 
@@ -24,8 +24,9 @@ interface UsePlaceActionsReturn {
   handleCloseGroupPopup: () => void;
   handleCloseDetail: () => void;
   handleMapClick: (latlng?: { lat?: number; lng?: number; address?: string }) => void;
-  handleCreatePlace: (data: PlaceFormData) => Promise<void>;
-  handleUpdatePlace: (data: PlaceFormData) => Promise<void>;
+  // 폼이 저장 성공 후 생성/수정된 장소(id 포함)를 돌려받아야 이 시점에서야 첨부된 사진을 confirm()할 수 있음
+  handleCreatePlace: (data: PlaceFormData) => Promise<Place>;
+  handleUpdatePlace: (data: PlaceFormData) => Promise<Place>;
   handleDeletePlace: (placeId: number) => Promise<void>;
   handleEditPlace: (place: PlaceDetailType) => void;
   handleCloseForm: () => void;
@@ -131,6 +132,7 @@ export function usePlaceActions({
       grade: created.grade,
     };
     setMarkers(prev => [...prev, newMarker]);
+    return created;
   }, [setMarkers]);
 
   const handleCloseForm = useCallback(() => {
@@ -145,7 +147,7 @@ export function usePlaceActions({
   }, []);
 
   const handleUpdatePlace = useCallback(async (data: PlaceFormData) => {
-    if (!editingPlace) return;
+    if (!editingPlace) throw new Error('수정할 장소를 찾을 수 없습니다');
     const updated = await placeApi.update(editingPlace.id, data);
     setEditingPlace(null);
     setMarkers(prev => prev.map(m => m.id === updated.id ? {
@@ -156,6 +158,7 @@ export function usePlaceActions({
       longitude: updated.longitude,
       grade: updated.grade,
     } : m));
+    return updated;
   }, [editingPlace, setMarkers]);
 
   const handleDeletePlace = useCallback(async (placeId: number) => {

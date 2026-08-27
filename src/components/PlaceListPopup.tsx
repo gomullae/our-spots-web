@@ -2,6 +2,7 @@
 
 import { Marker } from '@/types';
 import { TYPE_CONFIG, PANEL_DIMENSIONS, GRADE_LABELS } from '@/constants/placeConfig';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { clampPosition } from '@/utils/position';
 
 interface PlaceListPopupProps {
@@ -12,6 +13,7 @@ interface PlaceListPopupProps {
 }
 
 export default function PlaceListPopup({ markers, position, onSelect, onClose }: PlaceListPopupProps) {
+  useEscapeKey(onClose);
   const { LIST_WIDTH: popupWidth, LIST_MAX_HEIGHT: popupMaxHeight } = PANEL_DIMENSIONS;
 
   const adjustedPosition = typeof window !== 'undefined'

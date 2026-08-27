@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { feedbackApi } from '@/services/api';
 import { CloseIcon } from '@/components/icons';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export default function FeedbackModal({ isOpen, onClose, onToast }: FeedbackModa
     }
   };
 
+  useEscapeKey(onClose, isOpen);
   if (!isOpen) return null;
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { ExpenseCategory, ExpenseRecordPayload, PaymentMethod } from '@/types';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
 import { todayString } from '@/utils/weightDate';
@@ -34,6 +35,7 @@ export default function ExpenseForm({
   const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  useEscapeKey(onClose);
 
   const amountValue = Number(amount);
   const isValid = merchant.trim().length > 0 && amountValue > 0 && expenseDate <= todayString();

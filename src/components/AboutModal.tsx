@@ -1,11 +1,14 @@
 'use client';
 
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+
 interface AboutModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
+  useEscapeKey(onClose, isOpen);
   if (!isOpen) return null;
 
   return (

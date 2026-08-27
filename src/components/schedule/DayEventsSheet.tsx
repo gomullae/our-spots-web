@@ -1,9 +1,12 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { CloseIcon } from '@/components/icons';
+import PhotoLightbox from '@/components/PhotoLightbox';
+import RetryImage from '@/components/RetryImage';
 import { getHoliday } from '@/constants/holidays';
 import { SCHEDULE_CATEGORY_COLORS } from '@/constants/scheduleConfig';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { ScheduleEvent } from '@/types';
 import { formatDayHeader, formatEventTime } from '@/utils/scheduleDate';
 
@@ -19,8 +22,10 @@ interface DayEventsSheetProps {
 const SWIPE_DOWN_THRESHOLD = 60;
 
 export default function DayEventsSheet({ date, events, onClose, onAdd, onSelectEvent }: DayEventsSheetProps) {
+  useEscapeKey(onClose);
   const holiday = getHoliday(date);
   const touchStartYRef = useRef<number | null>(null);
+  const [lightboxEvent, setLightboxEvent] = useState<ScheduleEvent | null>(null);
 
   // 손잡이+헤더 영역에서만 반응 — 목록 스크롤 영역까지 포함하면 일정이 많을 때 스크롤하려다 닫히는 오작동이 생김
   const handleDragStart = (e: React.TouchEvent) => {
@@ -69,7 +74,7 @@ export default function DayEventsSheet({ date, events, onClose, onAdd, onSelectE
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {events.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-10">등록된 일정이 없습니다</p>
           ) : (
@@ -85,11 +90,27 @@ export default function DayEventsSheet({ date, events, onClose, onAdd, onSelectE
                   <p className="font-bold text-[15px] truncate">{event.title}</p>
                   {!event.allDay && <p className="text-xs text-gray-400 mt-0.5">{formatEventTime(event.startAt)}</p>}
                 </div>
+                {(event.photos ?? []).length > 0 && (
+                  <RetryImage
+                    src={event.photos[0].thumbnailUrl || event.photos[0].url}
+                    alt=""
+                    onClick={(e) => { e.stopPropagation(); setLightboxEvent(event); }}
+                    className="w-10 h-10 rounded-lg object-cover shrink-0"
+                  />
+                )}
               </div>
             ))
           )}
         </div>
       </div>
+
+      {lightboxEvent && (
+        <PhotoLightbox
+          urls={(lightboxEvent.photos ?? []).map((p) => p.url)}
+          startIndex={0}
+          onClose={() => setLightboxEvent(null)}
+        />
+      )}
     </div>
   );
 }
