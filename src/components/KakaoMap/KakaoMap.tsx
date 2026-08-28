@@ -51,7 +51,10 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   const markerClickedRef = useRef(false);
   const programmaticMoveRef = useRef(false);
   const onMapMovedRef = useRef(onMapMoved);
-  onMapMovedRef.current = onMapMoved;
+  // 렌더 중 ref를 직접 mutate하지 않고 effect 안에서 갱신(deps 없이 매 렌더 후 실행)
+  useEffect(() => {
+    onMapMovedRef.current = onMapMoved;
+  });
   const [mapReady, setMapReady] = useState(false);
   const { isLoaded, error } = useKakaoSDK();
 
@@ -93,6 +96,10 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
         level: zoom,
       };
       mapInstanceRef.current = new window.kakao.maps.Map(mapRef.current, options);
+      // 카카오맵 인스턴스 생성은 DOM ref가 필요해 렌더 중엔 할 수 없는 외부 시스템 동기화라 effect가 맞는 위치 —
+      // "prop에서 파생 가능한 state를 effect에서 세팅"하는 안티패턴과 달리, 다른 effect들이 mapInstanceRef를
+      // 안전하게 쓸 수 있는 시점을 아는 유일한 방법이 이 완료 플래그라 그대로 둠
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMapReady(true);
     } catch (e) {
       console.error('Failed to create map:', e);
@@ -320,7 +327,10 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
 
   // 역지오코딩 후 onMapClick 호출하는 공통 헬퍼
   const onMapClickRef = useRef(onMapClick);
-  onMapClickRef.current = onMapClick;
+  // 렌더 중 ref를 직접 mutate하지 않고 effect 안에서 갱신(deps 없이 매 렌더 후 실행)
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  });
   const reverseGeocodeAndClick = useCallback((lat: number, lng: number) => {
     if (window.kakao.maps.services?.Geocoder) {
       const geocoder = new window.kakao.maps.services.Geocoder();

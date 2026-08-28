@@ -8,11 +8,11 @@ import { SCHEDULE_CATEGORY_COLORS, SCHEDULE_CATEGORY_LABELS } from '@/constants/
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { Toast } from '@/hooks/useToast';
-import { ApiError, photoApi, scheduleApi } from '@/services/api';
+import { photoApi, scheduleApi } from '@/services/api';
 import { Photo, ScheduleEvent } from '@/types';
 import { formatDayHeader, formatEventTime } from '@/utils/scheduleDate';
+import { deletePhotoWithRecovery } from '@/utils/photoDelete';
 import { extractImageFiles, uploadPhotoWithThumbnail } from '@/utils/photoUpload';
-import { clearScheduleCache } from '@/utils/scheduleCache';
 
 interface ScheduleEventDetailProps {
   event: ScheduleEvent;
@@ -89,25 +89,15 @@ export default function ScheduleEventDetail({ event, onClose, onEdit, onDeleted,
   };
 
   const handleDeletePhoto = (photo: Photo) => {
-    showConfirm('이 사진을 삭제하시겠습니까?', async () => {
-      try {
-        await photoApi.delete(photo.id);
+    showConfirm('이 사진을 삭제하시겠습니까?', () => deletePhotoWithRecovery({
+      photoId: photo.id,
+      entityType: 'SCHEDULE_EVENT',
+      onRemoved: () => {
         setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
-        showToast('삭제했습니다', 'success');
         onChanged();
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404) {
-          // 이미 지워진 사진(다른 기기에서 먼저 삭제 등) — 로컬 스토리지 캐시(schedule-cache-v2)가 낡아 남아있던 것뿐이니
-          // 화면에서 지우고 캐시도 통째로 비워서 다음에 다시 이 낡은 목록이 뜨지 않게 함
-          setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
-          clearScheduleCache();
-          showToast('이미 삭제된 사진이에요', 'info');
-          onChanged();
-        } else {
-          showToast(err instanceof Error ? err.message : '삭제에 실패했습니다', 'error');
-        }
-      }
-    }, true);
+      },
+      showToast,
+    }), true);
   };
 
   const handleSaveMemo = () => {

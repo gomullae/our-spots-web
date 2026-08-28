@@ -50,7 +50,12 @@ export function useKakaoSDK() {
   );
 
   useEffect(() => {
+    // 모듈 레벨 싱글톤(loadState)을 구독하는 형태라 "prop에서 파생 가능한 state를 effect에서 세팅"하는
+    // 안티패턴이 아님 — 초기 렌더 이후(useState 지연 초기화 실행 시점)와 이 effect가 커밋되는 시점 사이에
+    // 다른 컴포넌트가 SDK 로드를 먼저 끝내버리는 경우를 따라잡기 위한 것(react-hooks/set-state-in-effect가
+    // 이런 외부 스토어 동기화 케이스까지 함께 잡아냄)
     if (loadState === 'loaded') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoaded(true);
       return;
     }

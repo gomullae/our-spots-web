@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef } from 'react';
 import { CloseIcon } from '@/components/icons';
 import { getHoliday } from '@/constants/holidays';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { useSwipeDownToClose } from '@/hooks/useSwipeDownToClose';
 import { ExpenseRecord } from '@/types';
 import { formatAmount, sumAmount } from '@/utils/expenseFormat';
 import { formatDisplayDate } from '@/utils/weightDate';
@@ -15,9 +15,6 @@ interface DayExpensesSheetProps {
   onClose: () => void;
 }
 
-// 이 거리 이상 아래로 쓸어내려야 닫힘으로 인정 — 위로 스크롤하려는 의도와 헷갈리지 않도록(DayEventsSheet와 동일)
-const SWIPE_DOWN_THRESHOLD = 60;
-
 // 관리자 페이지 컨테이너 자체가 넓은 화면에서도 좁은 폭(max-w-md)으로 고정돼있어서(AdminPageShell),
 // 모바일은 일정 관리와 동일한 하단 시트로, PC는 그 폭에 맞는 가운데 모달(ConfirmModal과 동일한 톤)로 분기
 export default function DayExpensesSheet({ date, records, onClose }: DayExpensesSheetProps) {
@@ -26,18 +23,8 @@ export default function DayExpensesSheet({ date, records, onClose }: DayExpenses
   const total = sumAmount(records);
   // 금액 큰 순으로 — 그 날 어디에 많이 썼는지 한눈에 보이도록
   const sortedRecords = [...records].sort((a, b) => b.amount - a.amount);
-  const touchStartYRef = useRef<number | null>(null);
-
   // 손잡이+헤더 영역에서만 반응 — 목록 스크롤 영역까지 포함하면 내역이 많을 때 스크롤하려다 닫히는 오작동이 생김
-  const handleDragStart = (e: React.TouchEvent) => {
-    touchStartYRef.current = e.touches[0].clientY;
-  };
-  const handleDragEnd = (e: React.TouchEvent) => {
-    const startY = touchStartYRef.current;
-    touchStartYRef.current = null;
-    if (startY === null) return;
-    if (e.changedTouches[0].clientY - startY > SWIPE_DOWN_THRESHOLD) onClose();
-  };
+  const { handleDragStart, handleDragEnd } = useSwipeDownToClose(onClose);
 
   const header = (
     <div className="flex items-start justify-between px-4 pt-3 pb-3 shrink-0">

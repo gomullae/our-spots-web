@@ -9,7 +9,7 @@ export function getCalendarGridDays(yearMonth: string): string[] {
   const lastDay = toDateString(new Date(year, month, 0));
 
   const gridStart = getWeekStart(firstDay);
-  const gridEnd = getWeekEnd(getWeekStart(lastDay));
+  let gridEnd = getWeekEnd(getWeekStart(lastDay));
 
   const days: string[] = [];
   let cursor = gridStart;
@@ -17,6 +17,17 @@ export function getCalendarGridDays(yearMonth: string): string[] {
     days.push(cursor);
     cursor = shiftDate(cursor, 1);
   }
+
+  // 달력 그리드가 필요로 하는 행 수는 최대 6주(42일) — 이미 6주가 아니면(5주 이하)
+  // 다음 달 1주를 통째로 더 보여줌. 이미 6주(상한)면 추가하지 않아서, 마지막 줄에 다음달 날짜가
+  // 이미 몇 개 섞여 있는 달(예: 2026년 8월)에도 7주째가 생기지 않고 항상 최대 6주로 유지됨
+  if (days.length < 42) {
+    for (let i = 0; i < 7; i++) {
+      gridEnd = shiftDate(gridEnd, 1);
+      days.push(gridEnd);
+    }
+  }
+
   return days;
 }
 

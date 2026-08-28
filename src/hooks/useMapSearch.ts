@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { KakaoMapHandle } from '@/components/KakaoMap';
 import { SearchResultPlace } from '@/types';
 
@@ -37,7 +37,10 @@ export function useMapSearch({
   const [searchToast, setSearchToast] = useState<string | null>(null);
   const searchKeywordRef = useRef('');
   const lastSearchBoundsRef = useRef<{ sw: { lat: number; lng: number }; ne: { lat: number; lng: number } } | null>(null);
-  searchKeywordRef.current = searchKeyword;
+  // 렌더 중 ref를 직접 mutate하지 않고 effect 안에서 갱신(deps 없이 매 렌더 후 실행)
+  useEffect(() => {
+    searchKeywordRef.current = searchKeyword;
+  });
 
   const performMapSearch = useCallback((keyword: string) => {
     if (!keyword.trim() || !window.kakao?.maps?.services) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { authApi, isLoggedIn } from '@/services/api';
 
 export interface UseAuthReturn {

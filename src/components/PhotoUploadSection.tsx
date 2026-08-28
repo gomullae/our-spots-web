@@ -5,10 +5,9 @@ import PhotoLightbox from './PhotoLightbox';
 import RetryImage from './RetryImage';
 import { CloseIcon } from '@/components/icons';
 import { Toast } from '@/hooks/useToast';
-import { ApiError, photoApi } from '@/services/api';
 import { Photo, PhotoEntityType } from '@/types';
+import { deletePhotoWithRecovery } from '@/utils/photoDelete';
 import { extractImageFiles, uploadPhotoWithThumbnail } from '@/utils/photoUpload';
-import { clearScheduleCache } from '@/utils/scheduleCache';
 
 // confirm 안 된 새 업로드 하나를 나타냄 — 원본/썸네일 objectKey를 둘 다 들고 있어야 confirm() 호출 가능
 export interface PendingPhoto {
@@ -105,23 +104,12 @@ export default function PhotoUploadSection({
   const handleDelete = (item: UploadItem) => {
     if (item.status === 'uploading') return;
     if (item.status === 'confirmed') {
-      showConfirm('이 사진을 삭제하시겠습니까?', async () => {
-        try {
-          await photoApi.delete(item.id);
-          setItems((prev) => prev.filter((it) => it !== item));
-          showToast('삭제했습니다', 'success');
-        } catch (err) {
-          if (err instanceof ApiError && err.status === 404) {
-            // 이미 지워진 사진(다른 기기에서 먼저 삭제 등) — 로컬에 낡은 상태로 남아있던 것뿐이니 화면에서도 지워서 정리.
-            // 일정은 로컬 스토리지 캐시(schedule-cache-v2)에도 이 낡은 사진 목록이 박혀있을 수 있어 통째로 비움
-            setItems((prev) => prev.filter((it) => it !== item));
-            if (entityType === 'SCHEDULE_EVENT') clearScheduleCache();
-            showToast('이미 삭제된 사진이에요', 'info');
-          } else {
-            showToast(err instanceof Error ? err.message : '삭제에 실패했습니다', 'error');
-          }
-        }
-      }, true);
+      showConfirm('이 사진을 삭제하시겠습니까?', () => deletePhotoWithRecovery({
+        photoId: item.id,
+        entityType,
+        onRemoved: () => setItems((prev) => prev.filter((it) => it !== item)),
+        showToast,
+      }), true);
     } else {
       // 아직 DB에 기록 안 된 사진이라 그냥 목록에서만 제거(R2에는 남지만 개인 프로젝트 규모에서 감내 가능한 트레이드오프)
       setItems((prev) => prev.filter((it) => it !== item));

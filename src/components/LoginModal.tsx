@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface LoginModalProps {
@@ -19,12 +19,16 @@ export default function LoginModal({
   error
 }: LoginModalProps) {
   const [password, setPassword] = useState('');
-
-  useEffect(() => {
+  // 로그인 성공 시 부모가 handleClose를 거치지 않고 직접 isOpen을 false로 바꾸는 경로가 있어서,
+  // 다시 열렸을 때 비밀번호가 남아있지 않도록 렌더 중에 prop 변화를 감지해서 리셋(useEffect 대신 —
+  // effect로 하면 리셋 전 상태가 한 프레임 먼저 그려짐)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setPassword('');
     }
-  }, [isOpen]);
+  }
 
   const handleClose = () => {
     setPassword('');

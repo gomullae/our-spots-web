@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import DayEventsSheet from './DayEventsSheet';
 import ScheduleEventDetail from './ScheduleEventDetail';
 import ScheduleForm from './ScheduleForm';
@@ -141,8 +141,30 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
 
   const { handleTouchStart, handleTouchEnd } = useSwipeNav((direction) => goToMonth(shiftMonth(yearMonth, direction)));
 
+  // 오늘이 그 달 마지막 주에 있으면, 맨 위(1주차)부터가 아니라 마지막 주(+ 위에서 확장한 다음달 미리보기 줄)가
+  // 바로 보이는 위치에서 시작 — 이전 주들이 궁금하면 위로 스크롤. 탭에 처음 진입했을 때 한 번만 적용하고,
+  // 이후 일정 등록/수정으로 인한 재조회 시에는 사용자가 옮겨둔 스크롤 위치를 다시 흔들지 않도록 달(yearMonth)별로 한 번만 실행
+  const containerRef = useRef<HTMLDivElement>(null);
+  const anchoredForMonthRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (isLoading) return;
+    if (yearMonth !== currentYearMonth()) return;
+    if (anchoredForMonthRef.current === yearMonth) return;
+    anchoredForMonthRef.current = yearMonth;
+
+    const todayIdx = weeks.findIndex((week) => week.includes(todayString()));
+    let lastRealWeekIdx = -1;
+    weeks.forEach((week, i) => {
+      if (week.some((d) => d.slice(0, 7) === yearMonth)) lastRealWeekIdx = i;
+    });
+
+    if (todayIdx !== -1 && todayIdx === lastRealWeekIdx && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [yearMonth, weeks, isLoading]);
+
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div ref={containerRef} className="flex-1 overflow-y-auto">
       <div className="relative flex items-center justify-center px-4 py-3 border-b border-gray-100">
         <button
           onClick={() => goToMonth(currentYearMonth())}

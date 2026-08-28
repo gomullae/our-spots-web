@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { CloseIcon } from '@/components/icons';
+import RetryImage from '@/components/RetryImage';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface PhotoLightboxProps {
@@ -81,8 +82,9 @@ export default function PhotoLightbox({ urls, startIndex, onClose }: PhotoLightb
         </>
       )}
 
-      {/* eslint-disable-next-line @next/next/no-img-element -- R2 공개 URL 원본을 그대로 표시, Next 이미지 최적화 파이프라인 불필요 */}
-      <img
+      {/* key로 사진이 바뀔 때마다 재시도 state(attempt/failed)를 리셋 — 안 그러면 이전 사진의 실패 상태가 다음 사진에 그대로 남음 */}
+      <RetryImage
+        key={urls[index]}
         src={urls[index]}
         alt=""
         className="max-w-full max-h-full object-contain"

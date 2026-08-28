@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Marker, PlaceType } from '@/types';
 import { PUBLIC_TYPES, PERSONAL_TYPES, GRADE_LABELS } from '@/constants/placeConfig';
 
@@ -30,17 +30,15 @@ export function useMarkerFilter({
 }: UseMarkerFilterOptions): UseMarkerFilterReturn {
   const [selectedTypes, setSelectedTypes] = useState<Set<PlaceType>>(new Set(PUBLIC_TYPES));
   const [selectedGrades, setSelectedGrades] = useState<Set<number>>(DEFAULT_GRADES);
-  const prevAuthRef = useRef(isAuthenticated);
-
-  // 로그인/로그아웃 시 개인 카테고리 자동 토글
-  useEffect(() => {
-    const wasAuthenticated = prevAuthRef.current;
-    prevAuthRef.current = isAuthenticated;
-
-    if (!wasAuthenticated && isAuthenticated) {
+  // 로그인/로그아웃 시 개인 카테고리 자동 토글 — prop(isAuthenticated) 변화에 따른 상태 조정이라
+  // effect 대신 렌더 중 조정(React 공식 패턴) — effect로 하면 토글 전 상태가 한 프레임 먼저 그려짐
+  const [prevAuthenticated, setPrevAuthenticated] = useState(isAuthenticated);
+  if (isAuthenticated !== prevAuthenticated) {
+    setPrevAuthenticated(isAuthenticated);
+    if (isAuthenticated) {
       // 로그인: "나의 발자취" 활성화
       setSelectedTypes(prev => new Set([...prev, 'MY_FOOTPRINT']));
-    } else if (wasAuthenticated && !isAuthenticated) {
+    } else {
       // 로그아웃: 개인 카테고리 해제
       setSelectedTypes(prev => {
         const next = new Set(prev);
@@ -48,7 +46,7 @@ export function useMarkerFilter({
         return next;
       });
     }
-  }, [isAuthenticated]);
+  }
 
   // 타입 + 등급 필터링된 마커 (비로그인 시 개인 카테고리 숨김)
   const filteredMarkers = useMemo(() => {

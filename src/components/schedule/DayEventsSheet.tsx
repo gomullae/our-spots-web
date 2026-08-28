@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { CloseIcon } from '@/components/icons';
 import PhotoLightbox from '@/components/PhotoLightbox';
 import RetryImage from '@/components/RetryImage';
 import { getHoliday } from '@/constants/holidays';
 import { SCHEDULE_CATEGORY_COLORS } from '@/constants/scheduleConfig';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { useSwipeDownToClose } from '@/hooks/useSwipeDownToClose';
 import { ScheduleEvent } from '@/types';
 import { formatDayHeader, formatEventTime } from '@/utils/scheduleDate';
 
@@ -18,25 +19,12 @@ interface DayEventsSheetProps {
   onSelectEvent: (event: ScheduleEvent) => void;
 }
 
-// 이 거리 이상 아래로 쓸어내려야 닫힘으로 인정 — 위로 스크롤하려는 의도와 헷갈리지 않도록
-const SWIPE_DOWN_THRESHOLD = 60;
-
 export default function DayEventsSheet({ date, events, onClose, onAdd, onSelectEvent }: DayEventsSheetProps) {
   useEscapeKey(onClose);
   const holiday = getHoliday(date);
-  const touchStartYRef = useRef<number | null>(null);
   const [lightboxEvent, setLightboxEvent] = useState<ScheduleEvent | null>(null);
-
   // 손잡이+헤더 영역에서만 반응 — 목록 스크롤 영역까지 포함하면 일정이 많을 때 스크롤하려다 닫히는 오작동이 생김
-  const handleDragStart = (e: React.TouchEvent) => {
-    touchStartYRef.current = e.touches[0].clientY;
-  };
-  const handleDragEnd = (e: React.TouchEvent) => {
-    const startY = touchStartYRef.current;
-    touchStartYRef.current = null;
-    if (startY === null) return;
-    if (e.changedTouches[0].clientY - startY > SWIPE_DOWN_THRESHOLD) onClose();
-  };
+  const { handleDragStart, handleDragEnd } = useSwipeDownToClose(onClose);
 
   return (
     <div className="sm:hidden fixed inset-0 z-40 flex items-end" onClick={onClose}>
