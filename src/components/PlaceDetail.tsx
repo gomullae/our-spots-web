@@ -283,21 +283,25 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
             </div>
           )}
 
-          {/* Action Buttons */}
+          {/* Action Buttons — 비로그인 시 수정/삭제는 아예 안 보이고 공유만 flex-1이라 자동으로 칸 전체를 차지함 */}
           <div className="flex gap-2 pt-2 border-t mt-3">
-            <button
-              onClick={handleEdit}
-              className="flex-1 py-1.5 px-3 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-            >
-              수정
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="flex-1 py-1.5 px-3 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {isDeleting ? '삭제 중...' : '삭제'}
-            </button>
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={handleEdit}
+                  className="flex-1 py-1.5 px-3 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-1.5 px-3 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isDeleting ? '삭제 중...' : '삭제'}
+                </button>
+              </>
+            )}
             <button
               onClick={handleCopyLink}
               className="flex-1 py-1.5 px-3 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"

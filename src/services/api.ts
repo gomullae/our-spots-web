@@ -104,12 +104,6 @@ export const authApi = {
 };
 
 export const placeApi = {
-  getAll: (type?: PlaceType) => {
-    const params = type ? `?type=${type}` : '';
-    return fetchApi<Place[]>(`/places${params}`);
-
-  },
-
   getRecent: (params: {
     startDate: string;
     endDate: string;

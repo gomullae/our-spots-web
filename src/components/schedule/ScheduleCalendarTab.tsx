@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import DayEventsSheet from './DayEventsSheet';
 import ScheduleEventDetail from './ScheduleEventDetail';
 import ScheduleForm from './ScheduleForm';
+import { PhotoIcon } from '@/components/icons';
 import { SCHEDULE_CATEGORY_COLORS } from '@/constants/scheduleConfig';
 import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
 import { useSwipeNav } from '@/hooks/useSwipeNav';
@@ -246,11 +247,22 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
                     return (
                       <div
                         key={span.event.id}
-                        onClick={(e) => { e.stopPropagation(); setDetailEvent(span.event); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 모바일은 빈 칸 클릭과 동일하게 그 날짜의 시트를 먼저 보여줌 — 상세는 시트에서 목록 항목을 눌러 진입
+                          if (window.innerWidth < 640) {
+                            setDaySheetDate(clippedStart);
+                          } else {
+                            setDetailEvent(span.event);
+                          }
+                        }}
                         className={`pointer-events-auto ${isTrueStart ? 'ml-0.5' : ''} ${isTrueEnd ? 'mr-0.5' : ''} my-px px-1.5 ${roundedClass} flex items-center justify-between gap-1 text-[10px] font-medium cursor-pointer hover:brightness-95 hover:shadow-sm transition ${colors.bg} ${colors.text}`}
                         style={{ gridColumn: `${colStart + 1} / span ${colSpan}`, gridRow: span.lane + 1 }}
                       >
-                        <span className="overflow-hidden whitespace-nowrap">{span.event.title}</span>
+                        <span className="flex items-center gap-0.5 overflow-hidden">
+                          {span.event.photos.length > 0 && <PhotoIcon className="w-2.5 h-2.5 shrink-0 opacity-70" />}
+                          <span className="overflow-hidden whitespace-nowrap">{span.event.title}</span>
+                        </span>
                         {!span.event.allDay && (
                           <span className="hidden sm:inline shrink-0 opacity-90">{formatEventTime(span.event.startAt)}</span>
                         )}

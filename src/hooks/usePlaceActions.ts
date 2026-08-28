@@ -130,6 +130,7 @@ export function usePlaceActions({
       latitude: created.latitude,
       longitude: created.longitude,
       grade: created.grade,
+      hasPhotos: created.photos.length > 0,
     };
     setMarkers(prev => [...prev, newMarker]);
     return created;
@@ -157,6 +158,7 @@ export function usePlaceActions({
       latitude: updated.latitude,
       longitude: updated.longitude,
       grade: updated.grade,
+      hasPhotos: updated.photos.length > 0,
     } : m));
     return updated;
   }, [editingPlace, setMarkers]);

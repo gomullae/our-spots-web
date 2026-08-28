@@ -46,7 +46,7 @@ export default function DayEventsSheet({ date, events, onClose, onAdd, onSelectE
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={onClose}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
                 aria-label="닫기"
               >
                 <CloseIcon className="w-4 h-4" />

@@ -45,6 +45,7 @@ export interface Marker {
   latitude: number;
   longitude: number;
   grade?: number;
+  hasPhotos: boolean;
 }
 
 export interface SearchResultPlace {
