@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "하민이네 일정 - OurSpots",
+  title: "Our Schedule",
   manifest: "/manifest-schedule.json",
   icons: {
     icon: "/icon-schedule-192.png",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "하민이네 일정",
+    title: "Our Schedule",
   },
 };
 

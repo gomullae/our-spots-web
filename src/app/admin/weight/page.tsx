@@ -100,7 +100,7 @@ export default function WeightAdminPage() {
   });
 
   return (
-    <AdminPageShell auth={auth} title="체중 관리" showBackButton={false}>
+    <AdminPageShell auth={auth} title="My Weight" showBackButton={false}>
       <div className="flex border-b shrink-0">
         {TABS.map(t => (
           <button

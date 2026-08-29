@@ -7,9 +7,14 @@ interface AboutModalProps {
   onClose: () => void;
 }
 
+// 아이가 2020년생(2026년 기준 6살, 한국식 나이)이라 연도 차로 계산 — 매년 별도 수정 없이 자동 반영됨
+const CHILD_BIRTH_YEAR = 2020;
+
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
   useEscapeKey(onClose, isOpen);
   if (!isOpen) return null;
+
+  const childAge = new Date().getFullYear() - CHILD_BIRTH_YEAR;
 
   return (
     <>
@@ -24,14 +29,14 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
               About This Project
             </h2>
             <div className="text-sm text-gray-600 leading-relaxed space-y-3">
-              <p>인천 검단신도시에 거주하는 6살 아이의 아빠입니다.</p>
+              <p>인천 검단신도시에 거주하는 {childAge}살 아이의 아빠입니다.</p>
               <p>
                 아이와 함께 다니며 기억에 남았던 장소와,
                 광화문·천호역 근무 시절부터 현재 잠실까지 이어진
                 맛집을 정리하다 보니 하나의 지도가 완성되었습니다.
               </p>
               <p>
-                &lsquo;OurSpots&rsquo;는 개인 경험을 기반으로 정리한
+                &lsquo;Our Spots&rsquo;는 개인 경험을 기반으로 정리한
                 토이 프로젝트이며, 가까운 사람들과 정보를 공유하기 위해
                 제작되었습니다.
               </p>

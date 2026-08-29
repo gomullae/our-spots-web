@@ -21,7 +21,7 @@ export default function ScheduleAdminPage() {
   }, []);
 
   return (
-    <AdminPageShell auth={auth} title="하민이네 일정" maxWidthClassName="max-w-5xl" showBackButton={false}>
+    <AdminPageShell auth={auth} title="Our Schedule" maxWidthClassName="max-w-5xl" showBackButton={false}>
       <ScheduleCalendarTab showToast={showToast} showConfirm={showConfirm} />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -49,6 +49,10 @@ export default function PhotoUploadSection({
   );
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  // dragenter/dragleave는 자식 엘리먼트를 넘나들 때마다도 발생해서 단순 boolean으로는 깜빡임 —
+  // 진입/이탈 횟수를 세서 0으로 돌아올 때만 실제로 영역을 벗어난 것으로 판단
+  const dragCounterRef = useRef(0);
 
   // 저장 전(신규 등록)/저장 중(수정) 단계라 confirm 안 된 항목만 부모에게 계속 알려줌
   useEffect(() => {
@@ -101,6 +105,36 @@ export default function PhotoUploadSection({
     e.target.value = '';
   };
 
+  // PC에서 파일 탐색기의 이미지를 이 영역에 바로 드래그&드롭으로 올릴 수 있게 함
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!e.dataTransfer.types.includes('Files')) return;
+    dragCounterRef.current += 1;
+    setIsDraggingOver(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    // 브라우저 기본 동작(드롭 시 이미지를 새 탭으로 여는 것)을 막아야 onDrop이 발생함
+    e.preventDefault();
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDraggingOver(false);
+    const files = extractImageFiles(e.dataTransfer.items);
+    if (files.length > 0) addFiles(files);
+  };
+
   const handleDelete = (item: UploadItem) => {
     if (item.status === 'uploading') return;
     if (item.status === 'confirmed') {
@@ -121,9 +155,18 @@ export default function PhotoUploadSection({
     .map((it) => it.url);
 
   return (
-    <div>
+    <div
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <label className="block text-sm font-medium text-gray-700 mb-1.5">사진</label>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div
+        className={`flex gap-2 overflow-x-auto pb-1 rounded-lg transition-colors ${
+          isDraggingOver ? 'ring-2 ring-blue-400 bg-blue-50' : ''
+        }`}
+      >
         {items.map((item) => {
           const isViewable = item.status !== 'uploading';
           const viewableIndex = isViewable ? viewableUrls.indexOf((item as { url: string }).url) : -1;
@@ -174,7 +217,7 @@ export default function PhotoUploadSection({
           className="hidden"
         />
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">클립보드에 복사한 사진을 Ctrl+V(⌘+V)로 붙여넣을 수도 있어요</p>
+      <p className="text-[11px] text-gray-400 mt-1">클립보드에 복사한 사진을 Ctrl+V(⌘+V)로 붙여넣거나, 파일을 이 영역에 끌어다 놓을 수도 있어요</p>
 
       {lightboxIndex !== null && (
         <PhotoLightbox urls={viewableUrls} startIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />

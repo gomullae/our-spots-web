@@ -54,6 +54,8 @@ export function useMarkerFilter({
 
     if (!isAuthenticated) {
       result = result.filter(m => !PERSONAL_TYPES.includes(m.type));
+      // 비로그인 방문자에게는 맛집만 1등급(찐맛집)으로 더 좁혀서 보여줌 — 아이 놀이터/아빠의 시간은 기존 등급 필터(1,2등급) 그대로
+      result = result.filter(m => m.type !== 'RESTAURANT' || m.grade === 1);
     }
 
     result = result.filter(m => selectedTypes.has(m.type));

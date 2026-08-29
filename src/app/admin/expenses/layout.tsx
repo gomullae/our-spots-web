@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "가계부 관리 - OurSpots",
+  title: "Our Budget",
   manifest: "/manifest-expense.json",
   icons: {
     icon: "/icon-expense-192.png",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "가계부 관리",
+    title: "Our Budget",
   },
 };
 

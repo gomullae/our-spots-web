@@ -1,7 +1,7 @@
 {
-  "name": "하민이네 일정",
-  "short_name": "하민이네 일정",
-  "description": "OurSpots 하민이네 일정",
+  "name": "Our Schedule",
+  "short_name": "Our Schedule",
+  "description": "Our Spots — Our Schedule",
   "start_url": "/admin/schedule",
   "scope": "/admin/schedule",
   "display": "standalone",

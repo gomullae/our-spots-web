@@ -1,7 +1,7 @@
 {
-  "name": "가계부 관리",
-  "short_name": "가계부 관리",
-  "description": "OurSpots 가계부 관리",
+  "name": "Our Budget",
+  "short_name": "Our Budget",
+  "description": "Our Spots — Our Budget",
   "start_url": "/admin/expenses",
   "scope": "/admin/expenses",
   "display": "standalone",

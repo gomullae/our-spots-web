@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "체중 관리 - OurSpots",
+  title: "My Weight",
   manifest: "/manifest-weight.json",
   icons: {
     icon: "/icon-weight-192.png",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "체중 관리",
+    title: "My Weight",
   },
 };
 

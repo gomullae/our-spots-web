@@ -93,7 +93,9 @@ export default function FilterButtons({ selectedTypes, onTypeToggle, selectedGra
         </div>
       </div>
 
-      {/* 그라데이션 + 구분선 + 필터 버튼 (우측 고정) */}
+      {/* 그라데이션 + 구분선 + 필터 버튼 (우측 고정) — 등급 필터 자체가 로그인 여부와 무관하게 항상 있었지만,
+          비로그인 사용자에게는 굳이 노출할 필요 없는 부가 기능이라 통째로 숨김 */}
+      {isAuthenticated && (
       <div className="absolute right-0 flex items-center h-full">
         {/* 그라데이션 페이드 */}
         <div className="w-12 h-full bg-gradient-to-r from-transparent to-white pointer-events-none" />
@@ -148,6 +150,7 @@ export default function FilterButtons({ selectedTypes, onTypeToggle, selectedGra
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

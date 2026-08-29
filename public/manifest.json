@@ -1,6 +1,6 @@
 {
-  "name": "OurSpots",
-  "short_name": "OurSpots",
+  "name": "Our Spots",
+  "short_name": "Our Spots",
   "description": "우리가 함께 만드는 장소 지도",
   "start_url": "/",
   "display": "standalone",

@@ -1,7 +1,7 @@
 {
-  "name": "체중 관리",
-  "short_name": "체중 관리",
-  "description": "OurSpots 체중 관리",
+  "name": "My Weight",
+  "short_name": "My Weight",
+  "description": "Our Spots — My Weight",
   "start_url": "/admin/weight",
   "scope": "/admin/weight",
   "display": "standalone",

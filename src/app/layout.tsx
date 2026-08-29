@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ourspots.life"),
-  title: "OurSpots",
+  title: "Our Spots",
   description: "우리가 함께 만드는 장소 지도",
   icons: {
     icon: "/favicon.ico",
@@ -39,20 +39,20 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "OurSpots",
+    title: "Our Spots",
   },
   openGraph: {
-    title: "OurSpots",
+    title: "Our Spots",
     description: "우리가 함께 만드는 장소 지도",
     url: "https://ourspots.life",
-    siteName: "OurSpots",
+    siteName: "Our Spots",
     images: [{ url: "/icon-512x512.png", width: 512, height: 512 }],
     locale: "ko_KR",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "OurSpots",
+    title: "Our Spots",
     description: "우리가 함께 만드는 장소 지도",
     images: ["/icon-512x512.png"],
   },
