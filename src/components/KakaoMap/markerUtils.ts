@@ -35,8 +35,14 @@ export function groupMarkersByCoord(markers: Marker[]): Map<string, Marker[]> {
   return grouped;
 }
 
-// 사진이 있는 장소만 마커 우측 하단에 붙는 작은 배지 — 튀지 않게 흰 배경 + 무채색 아이콘, 아주 작게
-const PHOTO_BADGE_HTML = `
+// 사진이 있는 장소만 마커 우측 하단에 붙는 작은 배지 — 튀지 않게 흰 배경 + 무채색 아이콘, 아주 작게.
+// 공개 사진이 하나도 없이 비공개 사진만 있으면 아이콘 색만 옅은 회색으로 바꿔서 구분함(눌러봐야
+// 비로그인 사용자에겐 안 보인다는 힌트) — 공개 사진이 하나라도 있으면 기존 진한 회색 그대로.
+// 흰 배경 원 자체는 항상 opacity 1로 또렷하게 유지 — 배지 전체를 반투명하게 하면 지도 배경(다른
+// 아이콘/글자)이 비쳐서 배지 자체가 거의 안 보이는 문제가 있었음(2026-08-30, 아이콘 색만 바꾸는 방식으로 변경)
+function photoBadgeHtml(hasPublicPhoto: boolean): string {
+  const strokeColor = hasPublicPhoto ? '#6B7280' : '#D1D5DB';
+  return `
   <div style="
     position: absolute;
     left: 24px;
@@ -50,16 +56,20 @@ const PHOTO_BADGE_HTML = `
     align-items: center;
     justify-content: center;
   ">
-    <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2">
+    <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="${strokeColor}" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
     </svg>
   </div>
 `;
+}
 
-// 단일 마커 HTML 생성
-export function createSingleMarkerHTML(marker: Marker): string {
+// 단일 마커 HTML 생성 — isAuthenticated는 사진 배지 표시 여부 판단에만 씀(비로그인 시 비공개 사진뿐인
+// 장소는 배지 자체를 아예 안 보여줌: 눌러봐야 안 보일 배지를 미리 노출할 필요 없음. 로그인 시에는
+// hasPhotos만으로 판단해 공개/비공개 무관하게 표시하고, 옅은 회색으로 구분함)
+export function createSingleMarkerHTML(marker: Marker, isAuthenticated: boolean): string {
   const color = getMarkerColor(marker.type as PlaceType, marker.grade);
   const icon = getIconPath(marker.type);
+  const shouldShowPhotoBadge = isAuthenticated ? marker.hasPhotos : marker.hasPublicPhoto;
 
   return `
     <div style="
@@ -86,7 +96,7 @@ export function createSingleMarkerHTML(marker: Marker): string {
           ${icon}
         </svg>
       </div>
-      ${marker.hasPhotos ? PHOTO_BADGE_HTML : ''}
+      ${shouldShowPhotoBadge ? photoBadgeHtml(marker.hasPublicPhoto) : ''}
     </div>
   `;
 }

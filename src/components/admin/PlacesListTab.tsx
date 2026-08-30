@@ -5,10 +5,10 @@ import PlaceFilterBar from '@/components/admin/PlaceFilterBar';
 import PlaceForm, { PlaceFormData } from '@/components/PlaceForm';
 import { Toast } from '@/hooks/useToast';
 import { placeApi } from '@/services/api';
-import { Place, PlaceType } from '@/types';
+import { Place, PlaceRecentSortBy, PlaceType } from '@/types';
 import { TYPE_CONFIG, getGradeLabel } from '@/constants/placeConfig';
 import { toDateString, todayString } from '@/utils/weightDate';
-import { LocationPinIcon, RefreshIcon, RestoreIcon } from '@/components/icons';
+import { LocationPinIcon, PhotoIcon, RefreshIcon, RestoreIcon } from '@/components/icons';
 
 const PAGE_SIZE = 10;
 const EARLIEST_DATE = '2020-01-01';
@@ -37,6 +37,7 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
   const [typeFilter, setTypeFilter] = useState<PlaceType | ''>('');
   const [gradeFilter, setGradeFilter] = useState<number | ''>('');
   const [includeDeleted, setIncludeDeleted] = useState(true);
+  const [sortBy, setSortBy] = useState<PlaceRecentSortBy>('CREATED_AT');
   const [page, setPage] = useState(0);
   const [places, setPlaces] = useState<Place[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -60,6 +61,7 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
       type: typeFilter || undefined,
       grade: gradeFilter === '' ? undefined : gradeFilter,
       includeDeleted,
+      sortBy,
       page,
       size: PAGE_SIZE,
     })
@@ -70,7 +72,7 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
       })
       .catch((err) => setError(err instanceof Error ? err.message : '불러오기에 실패했습니다'))
       .finally(() => setIsLoading(false));
-  }, [fromDate, toDate, keyword, typeFilter, gradeFilter, includeDeleted, page]);
+  }, [fromDate, toDate, keyword, typeFilter, gradeFilter, includeDeleted, sortBy, page]);
 
   useEffect(() => {
     fetchPlaces();
@@ -89,6 +91,7 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
   const handleTypeFilterChange = (value: PlaceType | '') => applyFilter(setTypeFilter, value);
   const handleGradeFilterChange = (value: number | '') => applyFilter(setGradeFilter, value);
   const handleIncludeDeletedChange = (value: boolean) => applyFilter(setIncludeDeleted, value);
+  const handleSortByChange = (value: PlaceRecentSortBy) => applyFilter(setSortBy, value);
 
   const handleUpdatePlace = async (data: PlaceFormData) => {
     if (!editingPlace) throw new Error('수정할 장소를 찾을 수 없습니다');
@@ -226,6 +229,8 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
         onGradeFilterChange={handleGradeFilterChange}
         includeDeleted={includeDeleted}
         onIncludeDeletedChange={handleIncludeDeletedChange}
+        sortBy={sortBy}
+        onSortByChange={handleSortByChange}
       />
 
       {!isLoading && places.length > 0 && (
@@ -292,6 +297,7 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
                       <span className={`text-sm font-medium truncate ${place.deletedAt ? 'line-through text-gray-400' : ''}`}>
                         {place.name}
                       </span>
+                      {place.photos.length > 0 && <PhotoIcon className="w-3 h-3 shrink-0 opacity-70" />}
                       <div className="flex items-center gap-1 shrink-0 ml-auto">
                         {place.deletedAt ? (
                           <>
@@ -337,7 +343,9 @@ export default function PlacesListTab({ showToast, showConfirm }: PlacesListTabP
                           <RefreshIcon className={`w-3.5 h-3.5 ${syncingIds.has(place.id) ? 'animate-spin' : ''}`} />
                         </button>
                       )}
-                      <span className="text-[10px] text-gray-400 shrink-0">{formatDate(place.createdAt)}</span>
+                      <span className="text-[10px] text-gray-400 shrink-0">
+                        {formatDate(sortBy === 'UPDATED_AT' ? place.updatedAt : place.createdAt)}
+                      </span>
                     </div>
                   </div>
                 </li>

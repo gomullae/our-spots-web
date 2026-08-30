@@ -8,6 +8,8 @@ import { groupMarkersByCoord, createSingleMarkerHTML, createGroupMarkerHTML, cre
 
 interface KakaoMapProps {
   markers: Marker[];
+  // 마커 사진 배지 표시 여부 판단용(markerUtils.createSingleMarkerHTML 참고) — 비로그인 시 비공개 사진뿐인 장소는 배지 자체를 숨김
+  isAuthenticated: boolean;
   onMarkerClick: (markers: Marker[], position: { x: number; y: number; markerCenter?: { x: number; y: number; w: number; h: number } }) => void;
   onMapClick?: (latlng: { lat?: number; lng?: number; address?: string }) => void;
   center?: { lat: number; lng: number };
@@ -29,6 +31,7 @@ export interface KakaoMapHandle {
 
 const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   markers,
+  isAuthenticated,
   onMarkerClick,
   onMapClick,
   center = DEFAULT_CENTER,
@@ -503,7 +506,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
       const content = document.createElement('div');
       content.innerHTML = isGroup
         ? createGroupMarkerHTML(markersAtLocation.length)
-        : createSingleMarkerHTML(firstMarker);
+        : createSingleMarkerHTML(firstMarker, isAuthenticated);
 
       content.style.cursor = 'pointer';
       content.onclick = (e) => {
@@ -529,7 +532,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
       customOverlay.setMap(mapInstanceRef.current);
       markerInstancesRef.current.push(customOverlay);
     });
-  }, [mapReady, markers, onMarkerClick]);
+  }, [mapReady, markers, isAuthenticated, onMarkerClick]);
 
   // Render search result markers (A, B, C...)
   useEffect(() => {

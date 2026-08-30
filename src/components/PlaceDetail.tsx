@@ -8,7 +8,7 @@ import { TYPE_CONFIG, getGradeLabel, PANEL_DIMENSIONS } from '@/constants/placeC
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { clampPosition } from '@/utils/position';
 import { openNaverDirections } from '@/utils/naverMap';
-import { CloseIcon, CopyIcon, CheckIcon, SearchIcon, ArrowRightIcon, CurrentLocationIcon } from '@/components/icons';
+import { CloseIcon, CopyIcon, CheckIcon, SearchIcon, ArrowRightIcon, CurrentLocationIcon, LockIcon } from '@/components/icons';
 
 interface PlaceDetailProps {
   place: PlaceDetailType | null;
@@ -156,11 +156,15 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
                   {TYPE_CONFIG[place.type].emoji} {TYPE_CONFIG[place.type].label}
                 </span>
               )}
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                getGradeLabel(place?.type as PlaceType, place?.grade).color
-              }`}>
-                {getGradeLabel(place?.type as PlaceType, place?.grade).label}
-              </span>
+              {/* 비로그인 시 노출되는 장소는 이제 항상 1등급이라(공개 타입 전부 1등급만 노출) 등급 배지가
+                  중복 정보 — 로그인 시에만 표시 */}
+              {isAuthenticated && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  getGradeLabel(place?.type as PlaceType, place?.grade).color
+                }`}>
+                  {getGradeLabel(place?.type as PlaceType, place?.grade).label}
+                </span>
+              )}
             </div>
           </>
         )}
@@ -271,13 +275,21 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
               <p className="text-[11px] font-medium text-gray-400 mb-1.5">사진 {place.photos.length}장</p>
               <div className="flex gap-1.5 overflow-x-auto -mx-3 px-3 pb-0.5">
                 {place.photos.map((photo, i) => (
-                  <RetryImage
-                    key={photo.id}
-                    src={photo.thumbnailUrl || photo.url}
-                    alt=""
-                    onClick={() => setLightboxIndex(i)}
-                    className="w-16 h-16 rounded-lg object-cover shrink-0 cursor-pointer border border-gray-200"
-                  />
+                  <div key={photo.id} className="relative shrink-0">
+                    <RetryImage
+                      src={photo.thumbnailUrl || photo.url}
+                      alt=""
+                      onClick={() => setLightboxIndex(i)}
+                      className="w-16 h-16 rounded-lg object-cover cursor-pointer border border-gray-200"
+                    />
+                    {/* 비공개 사진임을 썸네일에서 바로 알 수 있게 작은 자물쇠 배지 — 비로그인 조회는 서버가
+                        애초에 비공개 사진을 응답에서 빼기 때문에 이 배지는 로그인 상태에서만 실제로 보임 */}
+                    {!photo.isPublic && (
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/60 flex items-center justify-center">
+                        <LockIcon className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

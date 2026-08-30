@@ -256,6 +256,7 @@ function Home() {
       <KakaoMap
         ref={mapRef}
         markers={filteredMarkers}
+        isAuthenticated={auth.isAuthenticated}
         onMarkerClick={place.handleMarkerClick}
         onMapClick={place.handleMapClick}
         center={DEFAULT_CENTER}

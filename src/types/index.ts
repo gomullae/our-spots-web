@@ -28,6 +28,19 @@ export interface Photo {
   // 목록/썸네일용 축소본 — 이 기능 추가 전에 올라간 사진은 빈 문자열일 수 있어(원본으로 대체 표시)
   thumbnailUrl: string;
   displayOrder: number;
+  // 전체공개 여부 — 신규 업로드는 항상 false(비공개)로 시작, 관리자가 "등록 사진 이력"에서 전환
+  isPublic: boolean;
+}
+
+// 관리자 "등록 사진 이력" 화면 전용 — Photo는 Place와 FK 없이 연결돼있어서 장소명을 서버가 별도로 채워서 내려줌
+export interface PhotoAdminEntry {
+  id: number;
+  placeId: number;
+  placeName: string;
+  url: string;
+  thumbnailUrl: string;
+  isPublic: boolean;
+  createdAt: string;
 }
 
 export interface PhotoPresignResponse {
@@ -46,7 +59,12 @@ export interface Marker {
   longitude: number;
   grade?: number;
   hasPhotos: boolean;
+  // 공개 사진이 하나라도 있는지 — hasPhotos는 true인데 이게 false면 "사진은 있지만 전부 비공개"라
+  // 마커 배지를 옅은 회색으로 표시함(눌러봐야 비로그인 사용자에겐 안 보인다는 힌트)
+  hasPublicPhoto: boolean;
 }
+
+export type PlaceRecentSortBy = 'CREATED_AT' | 'UPDATED_AT';
 
 export interface SearchResultPlace {
   label: string;

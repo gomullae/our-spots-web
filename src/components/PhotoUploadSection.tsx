@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import PhotoLightbox from './PhotoLightbox';
 import RetryImage from './RetryImage';
-import { CloseIcon } from '@/components/icons';
+import { CloseIcon, LockIcon, UnlockIcon } from '@/components/icons';
 import { Toast } from '@/hooks/useToast';
+import { photoApi } from '@/services/api';
 import { Photo, PhotoEntityType } from '@/types';
 import { deletePhotoWithRecovery } from '@/utils/photoDelete';
 import { extractImageFiles, uploadPhotoWithThumbnail } from '@/utils/photoUpload';
@@ -32,7 +33,7 @@ interface PhotoUploadSectionProps {
 type UploadItem =
   | { status: 'uploading'; tempId: string; previewUrl: string }
   | { status: 'pending'; tempId: string; objectKey: string; thumbnailObjectKey: string; url: string; thumbnailUrl: string }
-  | { status: 'confirmed'; id: number; url: string; thumbnailUrl: string };
+  | { status: 'confirmed'; id: number; url: string; thumbnailUrl: string; isPublic: boolean };
 
 const THUMB_CLASS = 'relative w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-gray-200';
 
@@ -45,9 +46,10 @@ export default function PhotoUploadSection({
   showConfirm,
 }: PhotoUploadSectionProps) {
   const [items, setItems] = useState<UploadItem[]>(
-    () => initialPhotos.map((p) => ({ status: 'confirmed', id: p.id, url: p.url, thumbnailUrl: p.thumbnailUrl }))
+    () => initialPhotos.map((p) => ({ status: 'confirmed', id: p.id, url: p.url, thumbnailUrl: p.thumbnailUrl, isPublic: p.isPublic }))
   );
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   // dragenter/dragleave는 자식 엘리먼트를 넘나들 때마다도 발생해서 단순 boolean으로는 깜빡임 —
@@ -150,6 +152,28 @@ export default function PhotoUploadSection({
     }
   };
 
+  // 장소 사진만 공개/비공개 전환 가능(entityType === 'PLACE') — 일정 사진은 이 개념 자체가 없음
+  const handleToggleVisibility = async (item: Extract<UploadItem, { status: 'confirmed' }>) => {
+    if (togglingIds.has(item.id)) return;
+    const nextIsPublic = !item.isPublic;
+
+    setTogglingIds((prev) => new Set(prev).add(item.id));
+    try {
+      await photoApi.updateVisibility(item.id, nextIsPublic);
+      setItems((prev) =>
+        prev.map((it) => (it.status === 'confirmed' && it.id === item.id ? { ...it, isPublic: nextIsPublic } : it))
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '전환에 실패했습니다', 'error');
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
   const viewableUrls = items
     .filter((it): it is Extract<UploadItem, { status: 'pending' | 'confirmed' }> => it.status !== 'uploading')
     .map((it) => it.url);
@@ -163,7 +187,7 @@ export default function PhotoUploadSection({
     >
       <label className="block text-sm font-medium text-gray-700 mb-1.5">사진</label>
       <div
-        className={`flex gap-2 overflow-x-auto pb-1 rounded-lg transition-colors ${
+        className={`flex items-start gap-2 overflow-x-auto pb-1 rounded-lg transition-colors ${
           isDraggingOver ? 'ring-2 ring-blue-400 bg-blue-50' : ''
         }`}
       >
@@ -171,31 +195,48 @@ export default function PhotoUploadSection({
           const isViewable = item.status !== 'uploading';
           const viewableIndex = isViewable ? viewableUrls.indexOf((item as { url: string }).url) : -1;
           return (
-            <div key={item.status === 'confirmed' ? `c${item.id}` : item.tempId} className={THUMB_CLASS}>
-              {item.status === 'uploading' ? (
-                // eslint-disable-next-line @next/next/no-img-element -- 로컬 blob 미리보기, 재시도 필요 없음
-                <img src={item.previewUrl} alt="" className="w-full h-full object-cover opacity-40" />
-              ) : (
-                <RetryImage
-                  src={item.thumbnailUrl || item.url}
-                  alt=""
-                  onClick={() => setLightboxIndex(viewableIndex)}
-                  className="w-full h-full object-cover cursor-pointer"
-                />
+            <div key={item.status === 'confirmed' ? `c${item.id}` : item.tempId} className="flex flex-col items-center gap-1 shrink-0">
+              <div className={THUMB_CLASS}>
+                {item.status === 'uploading' ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 로컬 blob 미리보기, 재시도 필요 없음
+                  <img src={item.previewUrl} alt="" className="w-full h-full object-cover opacity-40" />
+                ) : (
+                  <RetryImage
+                    src={item.thumbnailUrl || item.url}
+                    alt=""
+                    onClick={() => setLightboxIndex(viewableIndex)}
+                    className="w-full h-full object-cover cursor-pointer"
+                  />
+                )}
+                {item.status === 'uploading' && (
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-500 bg-white/40">
+                    업로드 중
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                  aria-label="사진 삭제"
+                >
+                  <CloseIcon className="w-2.5 h-2.5" />
+                </button>
+              </div>
+              {/* 장소 사진만 공개/비공개 전환 가능 — 썸네일 위에 겹치는 배지 대신 사진 바로 아래 pill 버튼으로 배치
+                  ("등록 사진 이력" 화면의 pill과 같은 스타일) 해서 눌러서 바꾸는 동작이 더 명확하게 드러나게 함 */}
+              {item.status === 'confirmed' && entityType === 'PLACE' && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleVisibility(item)}
+                  disabled={togglingIds.has(item.id)}
+                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors disabled:opacity-50 ${
+                    item.isPublic ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {item.isPublic ? <UnlockIcon className="w-2.5 h-2.5" /> : <LockIcon className="w-2.5 h-2.5" />}
+                  {item.isPublic ? '공개' : '비공개'}
+                </button>
               )}
-              {item.status === 'uploading' && (
-                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-500 bg-white/40">
-                  업로드 중
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => handleDelete(item)}
-                className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
-                aria-label="사진 삭제"
-              >
-                <CloseIcon className="w-2.5 h-2.5" />
-              </button>
             </div>
           );
         })}

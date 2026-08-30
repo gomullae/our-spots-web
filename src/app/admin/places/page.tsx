@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import AdminPageShell from '@/components/AdminPageShell';
-import PlacesListTab from '@/components/admin/PlacesListTab';
+import PlaceHistoryTab from '@/components/admin/PlaceHistoryTab';
 import OpsToolsTab from '@/components/admin/OpsToolsTab';
 import LogHistoryTab from '@/components/admin/LogHistoryTab';
 import ShortcutsTab from '@/components/admin/ShortcutsTab';
@@ -15,7 +15,7 @@ type Tab = 'ops' | 'recent' | 'logs' | 'shortcuts';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'ops', label: '운영 도구' },
-  { key: 'recent', label: '최근 등록 장소' },
+  { key: 'recent', label: '장소 이력' },
   { key: 'logs', label: '로그 이력' },
   { key: 'shortcuts', label: '바로가기' },
 ];
@@ -32,7 +32,7 @@ export default function AdminPlacesPage() {
     setConfirmState({ message, onConfirm, isDestructive });
   };
 
-  // '운영 도구'를 기본 탭으로 둬서 '최근 등록 장소' 탭을 열기 전까지는 그 쪽 목록 쿼리가 나가지 않음
+  // '운영 도구'를 기본 탭으로 둬서 '장소 이력' 탭을 열기 전까지는 그 쪽 목록 쿼리가 나가지 않음
   const [tab, setTab] = useState<Tab>('ops');
 
   return (
@@ -52,7 +52,7 @@ export default function AdminPlacesPage() {
       </div>
 
       {tab === 'ops' && <OpsToolsTab showToast={showToast} />}
-      {tab === 'recent' && <PlacesListTab showToast={showToast} showConfirm={showConfirm} />}
+      {tab === 'recent' && <PlaceHistoryTab showToast={showToast} showConfirm={showConfirm} />}
       {tab === 'logs' && <LogHistoryTab showToast={showToast} />}
       {tab === 'shortcuts' && <ShortcutsTab />}
 

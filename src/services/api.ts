@@ -1,4 +1,4 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Photo, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Photo, PhotoAdminEntry, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceRecentSortBy, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 import { clearExpenseCache } from '@/utils/expenseCache';
 import { clearScheduleCache } from '@/utils/scheduleCache';
 import { clearWeightCache } from '@/utils/weightCache';
@@ -111,6 +111,7 @@ export const placeApi = {
     type?: PlaceType;
     grade?: number;
     includeDeleted?: boolean;
+    sortBy?: PlaceRecentSortBy;
     page: number;
     size?: number;
   }) => {
@@ -118,6 +119,7 @@ export const placeApi = {
       startDate: params.startDate,
       endDate: params.endDate,
       includeDeleted: String(params.includeDeleted ?? true),
+      sortBy: params.sortBy ?? 'CREATED_AT',
       page: String(params.page),
       size: String(params.size ?? 10),
     });
@@ -126,6 +128,17 @@ export const placeApi = {
     if (params.grade != null) query.set('grade', String(params.grade));
 
     return fetchApi<PageResponse<Place>>(`/places/recent?${query.toString()}`);
+  },
+
+  // 관리자 "등록 사진 이력" 화면 전용 — 장소 사진만 대상, 등록일시 내림차순 고정(정렬 옵션 없음)
+  getPhotoHistory: (params: { isPublic?: boolean; page: number; size?: number }) => {
+    const query = new URLSearchParams({
+      page: String(params.page),
+      size: String(params.size ?? 20),
+    });
+    if (params.isPublic != null) query.set('isPublic', String(params.isPublic));
+
+    return fetchApi<PageResponse<PhotoAdminEntry>>(`/places/photos?${query.toString()}`);
   },
 
   restore: (id: number) => {
@@ -364,6 +377,14 @@ export const photoApi = {
   delete: (id: number) => {
     return fetchApi<void>(`/photos/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  // "등록 사진 이력" 화면에서 공개/비공개 전환
+  updateVisibility: (id: number, isPublic: boolean) => {
+    return fetchApi<Photo>(`/photos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPublic }),
     });
   },
 };

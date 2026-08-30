@@ -1,5 +1,5 @@
 import { TYPE_CONFIG, GRADE_LABELS } from '@/constants/placeConfig';
-import { PlaceType } from '@/types';
+import { PlaceRecentSortBy, PlaceType } from '@/types';
 
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as PlaceType[];
 
@@ -19,6 +19,8 @@ interface PlaceFilterBarProps {
   onGradeFilterChange: (value: number | '') => void;
   includeDeleted: boolean;
   onIncludeDeletedChange: (value: boolean) => void;
+  sortBy: PlaceRecentSortBy;
+  onSortByChange: (value: PlaceRecentSortBy) => void;
 }
 
 export default function PlaceFilterBar({
@@ -37,6 +39,8 @@ export default function PlaceFilterBar({
   onGradeFilterChange,
   includeDeleted,
   onIncludeDeletedChange,
+  sortBy,
+  onSortByChange,
 }: PlaceFilterBarProps) {
   return (
     <div className="flex flex-col gap-2 px-4 py-2 border-b shrink-0">
@@ -104,15 +108,25 @@ export default function PlaceFilterBar({
           ))}
         </select>
       </div>
-      <label className="flex items-center gap-1.5 text-xs text-gray-500">
-        <input
-          type="checkbox"
-          checked={includeDeleted}
-          onChange={(e) => onIncludeDeletedChange(e.target.checked)}
-          className="w-3.5 h-3.5"
-        />
-        삭제된 항목 포함
-      </label>
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex items-center gap-1.5 text-xs text-gray-500">
+          <input
+            type="checkbox"
+            checked={includeDeleted}
+            onChange={(e) => onIncludeDeletedChange(e.target.checked)}
+            className="w-3.5 h-3.5"
+          />
+          삭제된 항목 포함
+        </label>
+        <select
+          value={sortBy}
+          onChange={(e) => onSortByChange(e.target.value as PlaceRecentSortBy)}
+          className="px-2 py-1 border rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="CREATED_AT">등록일시순</option>
+          <option value="UPDATED_AT">수정일시순</option>
+        </select>
+      </div>
     </div>
   );
 }

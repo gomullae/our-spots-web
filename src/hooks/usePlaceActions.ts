@@ -131,6 +131,7 @@ export function usePlaceActions({
       longitude: created.longitude,
       grade: created.grade,
       hasPhotos: created.photos.length > 0,
+      hasPublicPhoto: created.photos.some(p => p.isPublic),
     };
     setMarkers(prev => [...prev, newMarker]);
     return created;
@@ -159,6 +160,7 @@ export function usePlaceActions({
       longitude: updated.longitude,
       grade: updated.grade,
       hasPhotos: updated.photos.length > 0,
+      hasPublicPhoto: updated.photos.some(p => p.isPublic),
     } : m));
     return updated;
   }, [editingPlace, setMarkers]);
