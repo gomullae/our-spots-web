@@ -123,7 +123,9 @@ export default function ScheduleCalendarTab({ showToast, showConfirm }: Schedule
     if (!daySheetDate) return [];
     return events
       .filter((e) => e.startAt.slice(0, 10) <= daySheetDate && e.endAt.slice(0, 10) >= daySheetDate)
-      .sort((a, b) => (a.allDay !== b.allDay ? (a.allDay ? 1 : -1) : a.startAt.localeCompare(b.startAt)));
+      // startAt은 시:분:초.밀리초까지 있는 전체 datetime 문자열이라 localeCompare 대신 숫자 비교
+      // (ExpenseEntryTab의 등록일시순/수정일시순 정렬과 동일한 버그 패턴 — 2026-08-31 같이 수정)
+      .sort((a, b) => (a.allDay !== b.allDay ? (a.allDay ? 1 : -1) : new Date(a.startAt).getTime() - new Date(b.startAt).getTime()));
   }, [events, daySheetDate]);
 
   const closeForm = () => setFormState(null);
