@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import HouseholdIncomeForm from './HouseholdIncomeForm';
 import HouseholdItemForm from './HouseholdItemForm';
 import HouseholdHistoryModal from './HouseholdHistoryModal';
@@ -59,10 +59,13 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
   const [itemForm, setItemForm] = useState<ItemFormState | null>(null);
   const [historyTarget, setHistoryTarget] = useState<HistoryTarget | null>(null);
 
-  useEffect(() => {
+  // 마운트 시점과 CRUD 성공 직후 둘 다 이 함수로 재조회 — "그 항목만 로컬 patch + meta만 재기록"하는
+  // 방식은 다른 항목이 앱 밖(SQL 등)에서 바뀐 경우 그 항목이 영영 캐시에 낡은 채로 박제되는 문제가 있어서
+  // (meta가 patch 시점 기준으로 다시 "최신"이라고 찍혀버려 다음번 마운트 때도 불일치가 감지 안 됨),
+  // 일정 관리(ScheduleCalendarTab)의 fetchEvents()와 동일하게 매번 서버에서 전체를 다시 받아오는 방식으로 통일
+  const fetchAll = useCallback(() => {
     const cache = readHouseholdCache();
     // 캐시가 없는 진짜 첫 조회일 때만 로딩 표시 — 캐시가 있으면 이미 화면엔 그 데이터가 보이고 있어서 백그라운드에서 조용히 검증만 함
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(!cache);
     setError(null);
 
@@ -88,15 +91,22 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
       .catch(() => fetchFromServer(null));
   }, []);
 
-  // 수입/항목 추가·수정·삭제가 성공한 직후 호출 — 로컬 state는 이미 갱신된 상태라, meta만 다시 받아
-  // 캐시를 그 즉시 최신으로 맞춰둠(체중 관리 page.tsx의 syncCache와 동일 패턴). 이렇게 안 하면 다음 마운트
-  // 때 낡은 캐시가 잠깐 보였다가 meta 불일치로 재조회되는 깜빡임이 생김
-  const syncCache = (nextIncomes: HouseholdIncome[], nextItems: HouseholdBudgetItem[]) => {
-    householdBudgetApi.getMeta()
-      .then((meta) => writeHouseholdCache({ meta, overview: { incomes: nextIncomes, items: nextItems } }))
-      // meta 재조회 실패해도 화면엔 지장 없음 — 다음 마운트 때 다시 검증됨
-      .catch(() => {});
-  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAll();
+  }, [fetchAll]);
+
+  // 모바일에서 홈 화면 앱을 백그라운드로 보냈다가 다시 보는 것만으로는(완전 종료 후 재실행과 달리)
+  // 컴포넌트가 다시 마운트되지 않아 위 useEffect가 재실행되지 않음 — 그래서 화면이 다시 보이는 시점마다
+  // (visibilitychange) 별도로 meta를 재검증. 캐시를 지우는 게 아니라 getMeta()만 가볍게 다시 확인해서
+  // 실제로 달라졌을 때만 fetchFromServer가 도는 구조라 대부분은 이 가벼운 호출 한 번으로 끝남
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchAll();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchAll]);
 
   // ===== 계산 =====
   const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
@@ -161,21 +171,17 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
     });
   })();
 
-  // ===== 수입 CRUD =====
+  // ===== 수입 CRUD ===== (저장/삭제 성공 후엔 로컬 patch 대신 fetchAll()로 서버에서 통째로 다시 받아옴)
   const handleCreateIncome = async (data: HouseholdIncomePayload) => {
-    const created = await householdBudgetApi.createIncome(data);
-    const nextIncomes = [...incomes, created];
-    setIncomes(nextIncomes);
-    syncCache(nextIncomes, items);
+    await householdBudgetApi.createIncome(data);
+    fetchAll();
     showToast('등록했습니다', 'success');
   };
 
   const handleUpdateIncome = async (data: HouseholdIncomePayload) => {
     if (!incomeForm || incomeForm === 'new') return;
-    const updated = await householdBudgetApi.updateIncome(incomeForm.id, data);
-    const nextIncomes = incomes.map((i) => (i.id === updated.id ? updated : i));
-    setIncomes(nextIncomes);
-    syncCache(nextIncomes, items);
+    await householdBudgetApi.updateIncome(incomeForm.id, data);
+    fetchAll();
     showToast('수정했습니다', 'success');
   };
 
@@ -183,9 +189,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
     showConfirm(`"${income.label}"을(를) 삭제하시겠습니까?`, async () => {
       try {
         await householdBudgetApi.deleteIncome(income.id);
-        const nextIncomes = incomes.filter((i) => i.id !== income.id);
-        setIncomes(nextIncomes);
-        syncCache(nextIncomes, items);
+        fetchAll();
         setIncomeForm(null);
         showToast('삭제했습니다', 'success');
       } catch (err) {
@@ -196,19 +200,15 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
 
   // ===== 예산 항목 CRUD =====
   const handleCreateItem = async (data: HouseholdBudgetItemPayload) => {
-    const created = await householdBudgetApi.createItem(data);
-    const nextItems = [...items, created];
-    setItems(nextItems);
-    syncCache(incomes, nextItems);
+    await householdBudgetApi.createItem(data);
+    fetchAll();
     showToast('등록했습니다', 'success');
   };
 
   const handleUpdateItem = async (data: HouseholdBudgetItemPayload) => {
     if (!itemForm || 'mode' in itemForm) return;
-    const updated = await householdBudgetApi.updateItem(itemForm.id, data);
-    const nextItems = items.map((i) => (i.id === updated.id ? updated : i));
-    setItems(nextItems);
-    syncCache(incomes, nextItems);
+    await householdBudgetApi.updateItem(itemForm.id, data);
+    fetchAll();
     showToast('수정했습니다', 'success');
   };
 
@@ -216,9 +216,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
     showConfirm(`"${item.label}"을(를) 삭제하시겠습니까?`, async () => {
       try {
         await householdBudgetApi.deleteItem(item.id);
-        const nextItems = items.filter((i) => i.id !== item.id);
-        setItems(nextItems);
-        syncCache(incomes, nextItems);
+        fetchAll();
         setItemForm(null);
         showToast('삭제했습니다', 'success');
       } catch (err) {

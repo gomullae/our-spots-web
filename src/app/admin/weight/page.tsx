@@ -39,7 +39,11 @@ export default function WeightAdminPage() {
   const [records, setRecords] = useState<WeightRecord[]>(() => readWeightCache()?.records ?? []);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
+  // 마운트 시점과 CRUD 성공 직후 둘 다 이 함수로 재조회 — "그 항목만 로컬 patch + meta만 재기록"하는
+  // 방식은 다른 기록이 앱 밖(SQL 등)에서 바뀐 경우 그 기록이 영영 캐시에 낡은 채로 박제되는 문제가 있어서
+  // (meta가 patch 시점 기준으로 다시 "최신"이라고 찍혀버려 다음번 마운트 때도 불일치가 감지 안 됨),
+  // 일정 관리(ScheduleCalendarTab)의 fetchEvents()와 동일하게 매번 서버에서 전체를 다시 받아오는 방식으로 통일
+  const fetchAll = useCallback(() => {
     if (!auth.isAuthenticated) return;
 
     const cache = readWeightCache();
@@ -68,27 +72,27 @@ export default function WeightAdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.isAuthenticated]);
 
-  // 저장/삭제는 서버 응답을 받은 뒤 로컬 state만 갱신해왔는데, 캐시(weightCache)는 그대로 두면
-  // 다음 마운트(홈 화면 바로가기 재실행 등) 때 낡은 캐시가 잠깐 보였다가 meta 불일치로 재조회되는 깜빡임이 생김 —
-  // 저장/삭제 직후 meta를 다시 받아 캐시를 같이 갱신해서 이 세션 안에서도 캐시가 항상 최신을 유지하게 함
-  const syncCache = (nextRecords: WeightRecord[]) => {
-    weightApi.getMeta()
-      .then((meta) => writeWeightCache({ meta, records: nextRecords }))
-      // meta 재조회 실패해도 화면엔 지장 없음 — 다음 마운트 때 다시 검증됨
-      .catch(() => {});
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // 모바일에서 홈 화면 앱을 백그라운드로 보냈다가 다시 보는 것만으로는(완전 종료 후 재실행과 달리)
+  // 컴포넌트가 다시 마운트되지 않아 위 useEffect가 재실행되지 않음 — 그래서 화면이 다시 보이는 시점마다
+  // (visibilitychange) 별도로 meta를 재검증
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchAll();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchAll]);
+
+  const handleUpsert = () => {
+    fetchAll();
   };
 
-  const handleUpsert = (record: WeightRecord) => {
-    const next = [record, ...records.filter(r => r.id !== record.id)]
-      .sort((a, b) => b.recordedDate.localeCompare(a.recordedDate));
-    setRecords(next);
-    syncCache(next);
-  };
-
-  const handleDeleted = (id: number) => {
-    const next = records.filter(r => r.id !== id);
-    setRecords(next);
-    syncCache(next);
+  const handleDeleted = () => {
+    fetchAll();
   };
 
   // 모바일에서만 좌우 스와이프로 입력/그래프/전체기록 탭 전환 (PC는 탭 버튼 클릭만)
@@ -100,7 +104,7 @@ export default function WeightAdminPage() {
   });
 
   return (
-    <AdminPageShell auth={auth} title="My Weight" showBackButton={false}>
+    <AdminPageShell auth={auth} title="My Weight" showBackButton={false} showRefreshAndLogout>
       <div className="flex border-b shrink-0">
         {TABS.map(t => (
           <button

@@ -35,6 +35,15 @@ export function clearToken(): void {
   clearHouseholdCache();
 }
 
+// 로그아웃과 달리 토큰은 그대로 두고 캐시 4개만 지움 — 관리자 페이지 헤더의 "캐시 지우고 새로고침" 버튼용.
+// 앱을 거치지 않은 DB 변경(SQL 등) 이후 로컬 캐시가 낡은 채로 남아있을 때 수동으로 확실히 정리하는 용도
+export function clearAllCaches(): void {
+  clearScheduleCache();
+  clearWeightCache();
+  clearExpenseCache();
+  clearHouseholdCache();
+}
+
 export function isLoggedIn(): boolean {
   return !!getToken();
 }

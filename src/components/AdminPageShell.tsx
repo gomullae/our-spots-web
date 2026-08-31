@@ -2,9 +2,10 @@
 
 import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { LockIcon } from '@/components/icons';
+import { LockIcon, RefreshIcon, UnlockIcon } from '@/components/icons';
 import LoginModal from '@/components/LoginModal';
 import { UseAuthReturn } from '@/hooks/useAuth';
+import { clearAllCaches } from '@/services/api';
 
 interface AdminPageShellProps {
   auth: UseAuthReturn;
@@ -15,6 +16,9 @@ interface AdminPageShellProps {
   maxWidthClassName?: string;
   // 지도 화면 플로팅 버튼이 사라지고 홈 화면 바로가기/관리 페이지 "바로가기" 탭으로 진입하는 페이지들은 뒤로가기 필요성이 낮아 숨길 수 있음
   showBackButton?: boolean;
+  // 가계 현황/체중/일정처럼 localStorage 캐시를 쓰는 페이지에서만 헤더 우측에 "캐시 지우고 새로고침"/"로그아웃" 버튼 표시
+  // ("관리" 페이지는 캐시가 없어서 기본 false)
+  showRefreshAndLogout?: boolean;
 }
 
 export default function AdminPageShell({
@@ -24,8 +28,14 @@ export default function AdminPageShell({
   children,
   maxWidthClassName = 'max-w-md',
   showBackButton = true,
+  showRefreshAndLogout = false,
 }: AdminPageShellProps) {
   const router = useRouter();
+
+  const handleClearCacheAndReload = () => {
+    clearAllCaches();
+    window.location.reload();
+  };
 
   if (!auth.isAuthenticated) {
     return (
@@ -74,6 +84,26 @@ export default function AdminPageShell({
           )}
           <h1 className="text-sm font-bold">{title}</h1>
           {headerExtra}
+          {showRefreshAndLogout && (
+            <div className="ml-auto flex items-center gap-3">
+              <button
+                onClick={handleClearCacheAndReload}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="캐시 지우고 새로고침"
+                aria-label="캐시 지우고 새로고침"
+              >
+                <RefreshIcon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={auth.handleLogout}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="로그아웃"
+                aria-label="로그아웃"
+              >
+                <UnlockIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </header>
 
         {children}
