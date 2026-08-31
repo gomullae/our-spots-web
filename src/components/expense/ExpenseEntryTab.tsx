@@ -83,10 +83,13 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
   const filteredRecords = records
     .filter((r) => (!categoryFilter || r.category === categoryFilter) && (!methodFilter || r.paymentMethod === methodFilter))
     .sort((a, b) => {
+      // createdAt/updatedAt은 시:분:초.밀리초까지 있는 전체 datetime 문자열이라 localeCompare(로케일
+      // 정렬 규칙 적용)로 비교하면 실제 시간 순서와 어긋날 수 있음 — Date로 파싱해 숫자 비교로 교체
+      // (expenseDate는 "YYYY-MM-DD"만 있는 날짜 전용 문자열이라 localeCompare로도 항상 안전함)
       const cmp = sortBy === 'amount'
         ? a.amount - b.amount
         : sortBy === 'createdAt' || sortBy === 'updatedAt'
-          ? a[sortBy].localeCompare(b[sortBy])
+          ? new Date(a[sortBy]).getTime() - new Date(b[sortBy]).getTime()
           : a.expenseDate.localeCompare(b.expenseDate);
       return sortDir === 'desc' ? -cmp : cmp;
     });
