@@ -5,17 +5,19 @@ import AdminPageShell from '@/components/AdminPageShell';
 import ExpenseEntryTab from '@/components/expense/ExpenseEntryTab';
 import ExpenseCalendarTab from '@/components/expense/ExpenseCalendarTab';
 import ExpenseStatsTab from '@/components/expense/ExpenseStatsTab';
+import HouseholdBudgetTab from '@/components/household/HouseholdBudgetTab';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 
-type Tab = 'calendar' | 'entry' | 'stats';
+type Tab = 'calendar' | 'entry' | 'stats' | 'household';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'calendar', label: '달력' },
   { key: 'entry', label: '이력' },
   { key: 'stats', label: '통계' },
+  { key: 'household', label: '가계 현황' },
 ];
 
 export default function ExpenseAdminPage() {
@@ -51,6 +53,7 @@ export default function ExpenseAdminPage() {
       {tab === 'calendar' && <ExpenseCalendarTab showToast={showToast} />}
       {tab === 'entry' && <ExpenseEntryTab showToast={showToast} showConfirm={showConfirm} />}
       {tab === 'stats' && <ExpenseStatsTab showToast={showToast} />}
+      {tab === 'household' && <HouseholdBudgetTab showToast={showToast} showConfirm={showConfirm} />}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       {confirmState && (

@@ -183,3 +183,84 @@ export interface TableData {
   headers: string[];
   rows: (string | number | boolean | null)[][];
 }
+
+// 가계 현황("Our Budget" 4번째 탭) — 금액은 백엔드에서 DB엔 암호화 저장되지만 API 응답은 평문 숫자로 내려옴
+export type HouseholdSectionType = 'FIXED_COST' | 'ASSET' | 'PLANNED_EXPENSE' | 'SUBSCRIPTION';
+export type HouseholdAssetKind = 'ASSET' | 'LIABILITY';
+export type HouseholdPayer = 'JINWOO' | 'CHOYOUNG' | 'FAMILY';
+export type HouseholdHistoryAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE';
+
+export interface HouseholdIncome {
+  id: number;
+  label: string;
+  amount: number;
+  memo?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface HouseholdIncomePayload {
+  label: string;
+  amount: number;
+  memo?: string;
+}
+
+export interface HouseholdBudgetItem {
+  id: number;
+  sectionType: HouseholdSectionType;
+  assetKind?: HouseholdAssetKind;
+  label: string;
+  vendor?: string;
+  amount: number;
+  payer?: HouseholdPayer;
+  autoDebitBank?: string;
+  debitDay?: number;
+  account?: string;
+  plannedMonth?: string;
+  memo?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export interface HouseholdBudgetItemPayload {
+  sectionType: HouseholdSectionType;
+  assetKind?: HouseholdAssetKind;
+  label: string;
+  vendor?: string;
+  amount: number;
+  payer?: HouseholdPayer;
+  autoDebitBank?: string;
+  debitDay?: number;
+  account?: string;
+  plannedMonth?: string;
+  memo?: string;
+}
+
+export interface HouseholdBudgetOverview {
+  incomes: HouseholdIncome[];
+  items: HouseholdBudgetItem[];
+}
+
+export interface HouseholdBudgetMeta {
+  count: number;
+  lastModified: string | null;
+}
+
+export interface HouseholdHistoryEntry {
+  id: number;
+  action: HouseholdHistoryAction;
+  sectionType?: HouseholdSectionType;
+  assetKind?: HouseholdAssetKind;
+  label: string;
+  vendor?: string;
+  amount: number;
+  payer?: HouseholdPayer;
+  autoDebitBank?: string;
+  debitDay?: number;
+  account?: string;
+  plannedMonth?: string;
+  memo?: string;
+  createdAt: string;
+}

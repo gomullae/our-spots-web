@@ -1,5 +1,6 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, Marker, PageResponse, Photo, PhotoAdminEntry, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceRecentSortBy, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetMeta, HouseholdBudgetOverview, HouseholdHistoryEntry, HouseholdIncome, HouseholdIncomePayload, Marker, PageResponse, Photo, PhotoAdminEntry, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceRecentSortBy, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 import { clearExpenseCache } from '@/utils/expenseCache';
+import { clearHouseholdCache } from '@/utils/householdCache';
 import { clearScheduleCache } from '@/utils/scheduleCache';
 import { clearWeightCache } from '@/utils/weightCache';
 
@@ -27,10 +28,11 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
-  // 로그아웃/토큰 만료 시 같이 쓰는 컴퓨터에 일정/체중/가계부 내용이 localStorage에 남아있지 않도록 같이 정리
+  // 로그아웃/토큰 만료 시 같이 쓰는 컴퓨터에 일정/체중/가계부/가계 현황 내용이 localStorage에 남아있지 않도록 같이 정리
   clearScheduleCache();
   clearWeightCache();
   clearExpenseCache();
+  clearHouseholdCache();
 }
 
 export function isLoggedIn(): boolean {
@@ -386,5 +388,78 @@ export const photoApi = {
       method: 'PATCH',
       body: JSON.stringify({ isPublic }),
     });
+  },
+};
+
+// "Our Budget" 4번째 탭 "가계 현황" — 급여/자산 등 민감한 데이터라 백엔드가 amount 컬럼을 암호화 저장하고,
+// 추가/수정/삭제 시마다 텔레그램 알림 + 이력 기록까지 처리함(프론트는 CRUD 호출만 담당)
+export const householdBudgetApi = {
+  getOverview: (includeDeleted = false) => {
+    return fetchApi<HouseholdBudgetOverview>(`/household-budget?includeDeleted=${includeDeleted}`);
+  },
+
+  // 로컬(localStorage) 캐시 검증용 — 전체 목록 대신 count/lastModified만 가볍게 확인
+  getMeta: () => {
+    return fetchApi<HouseholdBudgetMeta>('/household-budget/meta');
+  },
+
+  createIncome: (payload: HouseholdIncomePayload) => {
+    return fetchApi<HouseholdIncome>('/household-budget/incomes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateIncome: (id: number, payload: HouseholdIncomePayload) => {
+    return fetchApi<HouseholdIncome>(`/household-budget/incomes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteIncome: (id: number) => {
+    return fetchApi<void>(`/household-budget/incomes/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  restoreIncome: (id: number) => {
+    return fetchApi<HouseholdIncome>(`/household-budget/incomes/${id}/restore`, {
+      method: 'POST',
+    });
+  },
+
+  getIncomeHistory: (id: number) => {
+    return fetchApi<HouseholdHistoryEntry[]>(`/household-budget/incomes/${id}/history`);
+  },
+
+  createItem: (payload: HouseholdBudgetItemPayload) => {
+    return fetchApi<HouseholdBudgetItem>('/household-budget/items', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateItem: (id: number, payload: HouseholdBudgetItemPayload) => {
+    return fetchApi<HouseholdBudgetItem>(`/household-budget/items/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteItem: (id: number) => {
+    return fetchApi<void>(`/household-budget/items/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  restoreItem: (id: number) => {
+    return fetchApi<HouseholdBudgetItem>(`/household-budget/items/${id}/restore`, {
+      method: 'POST',
+    });
+  },
+
+  getItemHistory: (id: number) => {
+    return fetchApi<HouseholdHistoryEntry[]>(`/household-budget/items/${id}/history`);
   },
 };

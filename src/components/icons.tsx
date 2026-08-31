@@ -157,3 +157,4 @@ export function CalendarIcon({ className = 'w-5 h-5' }: IconProps) {
     </svg>
   );
 }
+
