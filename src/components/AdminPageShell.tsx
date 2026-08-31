@@ -19,6 +19,10 @@ interface AdminPageShellProps {
   // 가계 현황/체중/일정처럼 localStorage 캐시를 쓰는 페이지에서만 헤더 우측에 "캐시 지우고 새로고침"/"로그아웃" 버튼 표시
   // ("관리" 페이지는 캐시가 없어서 기본 false)
   showRefreshAndLogout?: boolean;
+  // 로그아웃 버튼 클릭 시 확인 절차를 거치게 하려면 각 페이지가 이미 갖고 있는 showConfirm을 그대로 전달 —
+  // 폼 저장/삭제 중에 실수로 로그아웃 버튼을 눌러 진행 중인 요청/미저장 입력을 날리는 사고를 막기 위함
+  // (전달 안 하면 기존처럼 확인 없이 바로 로그아웃)
+  showConfirm?: (message: string, onConfirm: () => void, isDestructive?: boolean) => void;
 }
 
 export default function AdminPageShell({
@@ -29,12 +33,19 @@ export default function AdminPageShell({
   maxWidthClassName = 'max-w-md',
   showBackButton = true,
   showRefreshAndLogout = false,
+  showConfirm,
 }: AdminPageShellProps) {
   const router = useRouter();
 
   const handleClearCacheAndReload = () => {
     clearAllCaches();
     window.location.reload();
+  };
+
+  const handleLogoutClick = () => {
+    // showConfirm이 없으면(호출부가 안 넘겼으면) 기존처럼 바로 로그아웃
+    if (!showConfirm) { auth.handleLogout(); return; }
+    showConfirm('로그아웃하시겠습니까? 저장 중인 내용이 있다면 먼저 완료해주세요.', () => auth.handleLogout());
   };
 
   if (!auth.isAuthenticated) {
@@ -95,7 +106,7 @@ export default function AdminPageShell({
                 <RefreshIcon className="w-4 h-4" />
               </button>
               <button
-                onClick={auth.handleLogout}
+                onClick={handleLogoutClick}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
                 title="로그아웃"
                 aria-label="로그아웃"

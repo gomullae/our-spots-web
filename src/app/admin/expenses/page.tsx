@@ -35,7 +35,7 @@ export default function ExpenseAdminPage() {
   const [tab, setTab] = useState<Tab>('calendar');
 
   return (
-    <AdminPageShell auth={auth} title="Our Budget" showBackButton={false} showRefreshAndLogout>
+    <AdminPageShell auth={auth} title="Our Budget" showBackButton={false} showRefreshAndLogout showConfirm={showConfirm}>
       <div className="flex border-b shrink-0">
         {TABS.map((t) => (
           <button

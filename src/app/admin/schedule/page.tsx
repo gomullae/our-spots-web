@@ -21,7 +21,7 @@ export default function ScheduleAdminPage() {
   }, []);
 
   return (
-    <AdminPageShell auth={auth} title="Our Schedule" maxWidthClassName="max-w-5xl" showBackButton={false} showRefreshAndLogout>
+    <AdminPageShell auth={auth} title="Our Schedule" maxWidthClassName="max-w-5xl" showBackButton={false} showRefreshAndLogout showConfirm={showConfirm}>
       <ScheduleCalendarTab showToast={showToast} showConfirm={showConfirm} />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />

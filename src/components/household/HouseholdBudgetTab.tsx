@@ -5,6 +5,7 @@ import HouseholdIncomeForm from './HouseholdIncomeForm';
 import HouseholdItemForm from './HouseholdItemForm';
 import HouseholdHistoryModal from './HouseholdHistoryModal';
 import { Toast } from '@/hooks/useToast';
+import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
 import { householdBudgetApi } from '@/services/api';
 import { HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetMeta, HouseholdIncome, HouseholdIncomePayload, HouseholdSectionType } from '@/types';
 import { HOUSEHOLD_ASSET_KIND_LABELS, HOUSEHOLD_PAYER_LABELS } from '@/constants/householdConfig';
@@ -53,7 +54,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
   const [incomes, setIncomes] = useState<HouseholdIncome[]>(() => readHouseholdCache()?.overview.incomes ?? []);
   const [items, setItems] = useState<HouseholdBudgetItem[]>(() => readHouseholdCache()?.overview.items ?? []);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const beginRequest = useLatestRequestGuard();
 
   const [incomeForm, setIncomeForm] = useState<IncomeFormState | null>(null);
   const [itemForm, setItemForm] = useState<ItemFormState | null>(null);
@@ -62,34 +63,39 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
   // 마운트 시점과 CRUD 성공 직후 둘 다 이 함수로 재조회 — "그 항목만 로컬 patch + meta만 재기록"하는
   // 방식은 다른 항목이 앱 밖(SQL 등)에서 바뀐 경우 그 항목이 영영 캐시에 낡은 채로 박제되는 문제가 있어서
   // (meta가 patch 시점 기준으로 다시 "최신"이라고 찍혀버려 다음번 마운트 때도 불일치가 감지 안 됨),
-  // 일정 관리(ScheduleCalendarTab)의 fetchEvents()와 동일하게 매번 서버에서 전체를 다시 받아오는 방식으로 통일
+  // 일정 관리(ScheduleCalendarTab)의 fetchEvents()와 동일하게 매번 서버에서 전체를 다시 받아오는 방식으로 통일.
+  // visibilitychange 재검증과 CRUD 직후 호출이 겹치면 먼저 시작한 요청의 응답이 나중에 도착할 수 있어서
+  // (레이스), beginRequest/isStale로 그 시점 가장 최근 호출이 아니면 결과를 버림(ScheduleCalendarTab과 동일 패턴)
   const fetchAll = useCallback(() => {
+    const isStale = beginRequest();
     const cache = readHouseholdCache();
     // 캐시가 없는 진짜 첫 조회일 때만 로딩 표시 — 캐시가 있으면 이미 화면엔 그 데이터가 보이고 있어서 백그라운드에서 조용히 검증만 함
     setIsLoading(!cache);
-    setError(null);
 
     const fetchFromServer = (meta: HouseholdBudgetMeta | null) => {
       householdBudgetApi.getOverview()
         .then((data) => {
+          if (isStale()) return;
           setIncomes(data.incomes);
           setItems(data.items);
           if (meta) writeHouseholdCache({ meta, overview: data });
         })
-        .catch((err) => setError(err instanceof Error ? err.message : '불러오기에 실패했습니다'))
-        .finally(() => setIsLoading(false));
+        // 배경 재검증 실패로 화면 전체를 비우지 않고(캐시 데이터는 계속 보여줌) 토스트로만 알림
+        .catch((err) => { if (!isStale()) showToast(err instanceof Error ? err.message : '불러오기에 실패했습니다', 'error'); })
+        .finally(() => { if (!isStale()) setIsLoading(false); });
     };
 
     householdBudgetApi.getMeta()
       .then((meta) => {
+        if (isStale()) return;
         const cacheValid = !!cache && isSameHouseholdMeta(cache.meta, meta);
         // 캐시가 이미 정확한 걸로 확인됨 — 화면엔 이미 그 데이터가 보이고 있으므로 더 할 일 없음
         if (cacheValid) { setIsLoading(false); return; }
         fetchFromServer(meta);
       })
       // meta 확인 자체가 실패하면(오프라인 등) 캐시 검증을 포기하고 그냥 서버에서 직접 불러옴
-      .catch(() => fetchFromServer(null));
-  }, []);
+      .catch(() => { if (!isStale()) fetchFromServer(null); });
+  }, [beginRequest, showToast]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -226,7 +232,6 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
   };
 
   if (isLoading) return <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>;
-  if (error) return <p className="text-sm text-red-500 text-center py-10">{error}</p>;
 
   const isNewItemForm = itemForm !== null && 'mode' in itemForm;
   const isEditItemForm = itemForm !== null && !('mode' in itemForm);
@@ -276,7 +281,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
                 <span key="amount" className="block text-right">{formatAmount(item.amount)}</span>,
                 item.payer ? HOUSEHOLD_PAYER_LABELS[item.payer] : '',
                 item.autoDebitBank || '',
-                item.debitDay ? `${item.debitDay}일` : '',
+                item.debitDay != null ? `${item.debitDay}일` : '',
               ]}
               memo={item.memo}
               onClick={() => setItemForm(item)}
@@ -296,7 +301,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
             ...(choyoungTotal > 0
               ? [
                   <tr key={`${account}-choyoung`} className="bg-gray-50 text-gray-500">
-                    <Td colSpan={2} className="pl-4">└ 초영통장</Td>
+                    <Td colSpan={2} className="pl-4">└ 초영통장 소계</Td>
                     <Td className="text-right">{formatAmount(choyoungTotal)}</Td>
                     <Td colSpan={4}></Td>
                   </tr>,
@@ -372,7 +377,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
               item.payer ? HOUSEHOLD_PAYER_LABELS[item.payer] : '',
               item.label,
               <span key="amount" className="block text-right">{formatAmount(item.amount)}</span>,
-              item.debitDay ? `${item.debitDay}일` : '',
+              item.debitDay != null ? `${item.debitDay}일` : '',
             ]}
             memo={item.memo}
             onClick={() => setItemForm(item)}

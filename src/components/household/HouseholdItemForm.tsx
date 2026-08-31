@@ -50,7 +50,7 @@ export default function HouseholdItemForm({
   const [amount, setAmount] = useState(initialAmount != null ? initialAmount.toLocaleString('ko-KR') : '');
   const [payer, setPayer] = useState<HouseholdPayer | ''>(initialPayer || '');
   const [autoDebitBank, setAutoDebitBank] = useState(initialAutoDebitBank || '');
-  const [debitDay, setDebitDay] = useState(initialDebitDay ? String(initialDebitDay) : '');
+  const [debitDay, setDebitDay] = useState(initialDebitDay != null ? String(initialDebitDay) : '');
   const [account, setAccount] = useState(initialAccount || '');
   const [plannedMonth, setPlannedMonth] = useState(initialPlannedMonth || '');
   const [memo, setMemo] = useState(initialMemo || '');
