@@ -11,11 +11,28 @@ interface OpsToolsTabProps {
   showToast: (message: string, type?: Toast['type']) => void;
 }
 
-const BACKUP_TABLE_OPTIONS: BackupTable[] = ['PLACES', 'EXPENSE_RECORDS', 'WEIGHT_RECORDS', 'SCHEDULE_EVENTS', 'LOGIN_ATTEMPTS', 'FEEDBACKS'];
+const BACKUP_TABLE_OPTIONS: BackupTable[] = [
+  'PLACES',
+  'EXPENSE_RECORDS',
+  'WEIGHT_RECORDS',
+  'SCHEDULE_EVENTS',
+  'LOGIN_ATTEMPTS',
+  'FEEDBACKS',
+  'HOUSEHOLD_INCOMES',
+  'HOUSEHOLD_BUDGET_ITEMS',
+  'HOUSEHOLD_HISTORY',
+];
+
+// "전체"는 실제 백엔드 테이블이 아니라 프론트에서만 쓰는 선택지 — 고르면 위 9개 테이블을 순차적으로
+// 하나씩 다운로드(백엔드에 table=ALL 같은 통합 엔드포인트를 새로 만들지 않고, 이미 있는 단건 다운로드
+// API를 반복 호출하는 방식). 동시에 여러 개를 한꺼번에 트리거하면 브라우저가 "여러 파일 다운로드" 차단
+// 경고를 띄울 수 있어서, await로 하나씩 순서대로 받게 함(그래서 "일괄"이 아니라 "순차적으로")
+const ALL_TABLES = 'ALL_TABLES' as const;
+type BackupTableSelection = BackupTable | typeof ALL_TABLES;
 
 export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [backupTable, setBackupTable] = useState<BackupTable>('PLACES');
+  const [backupTable, setBackupTable] = useState<BackupTableSelection>('PLACES');
   const [backupPeriod, setBackupPeriod] = useState<BackupPeriod>('RECENT_3_MONTHS');
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -39,8 +56,17 @@ export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
     }
     setIsDownloading(true);
     try {
-      await backupApi.download(backupTable, backupPeriod);
-      showToast('백업 파일을 다운로드했습니다', 'success');
+      if (backupTable === ALL_TABLES) {
+        // 병렬이 아니라 순차 — 브라우저의 "여러 파일 동시 다운로드" 차단을 피하고, 실패 시 어디까지
+        // 받았는지도 명확해짐
+        for (const table of BACKUP_TABLE_OPTIONS) {
+          await backupApi.download(table, backupPeriod);
+        }
+        showToast(`${BACKUP_TABLE_OPTIONS.length}개 테이블을 모두 다운로드했습니다`, 'success');
+      } else {
+        await backupApi.download(backupTable, backupPeriod);
+        showToast('백업 파일을 다운로드했습니다', 'success');
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : '백업 다운로드에 실패했습니다', 'error');
     } finally {
@@ -77,9 +103,10 @@ export default function OpsToolsTab({ showToast }: OpsToolsTabProps) {
 
         <select
           value={backupTable}
-          onChange={(e) => setBackupTable(e.target.value as BackupTable)}
+          onChange={(e) => setBackupTable(e.target.value as BackupTableSelection)}
           className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
+          <option value={ALL_TABLES}>전체 ({BACKUP_TABLE_OPTIONS.length}개 테이블 순차 다운로드)</option>
           {BACKUP_TABLE_OPTIONS.map((key) => (
             <option key={key} value={key}>{BACKUP_TABLE_LABELS[key]}</option>
           ))}

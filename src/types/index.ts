@@ -137,7 +137,18 @@ export interface ExpenseMeta {
   lastModified: string | null;
 }
 
-export type BackupTable = 'PLACES' | 'EXPENSE_RECORDS' | 'WEIGHT_RECORDS' | 'LOGIN_ATTEMPTS' | 'FEEDBACKS' | 'ERROR_LOGS' | 'ACCESS_DENIED_LOGS' | 'SCHEDULE_EVENTS';
+export type BackupTable =
+  | 'PLACES'
+  | 'EXPENSE_RECORDS'
+  | 'WEIGHT_RECORDS'
+  | 'LOGIN_ATTEMPTS'
+  | 'FEEDBACKS'
+  | 'ERROR_LOGS'
+  | 'ACCESS_DENIED_LOGS'
+  | 'SCHEDULE_EVENTS'
+  | 'HOUSEHOLD_INCOMES'
+  | 'HOUSEHOLD_BUDGET_ITEMS'
+  | 'HOUSEHOLD_HISTORY';
 export type BackupPeriod = 'ALL' | 'RECENT_3_MONTHS';
 
 export type ScheduleCategory =
