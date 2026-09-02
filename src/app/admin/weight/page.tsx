@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import AdminPageShell from '@/components/AdminPageShell';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -8,11 +8,11 @@ import WeightEntryTab from '@/components/weight/WeightEntryTab';
 import WeightGraphTab from '@/components/weight/WeightGraphTab';
 import WeightListTab from '@/components/weight/WeightListTab';
 import { useAuth } from '@/hooks/useAuth';
-import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { useSwipeNav } from '@/hooks/useSwipeNav';
 import { useToast } from '@/hooks/useToast';
 import { weightApi } from '@/services/api';
-import { WeightMeta, WeightRecord } from '@/types';
+import { WeightRecord } from '@/types';
 import { isSameWeightMeta, readWeightCache, writeWeightCache } from '@/utils/weightCache';
 
 type Tab = 'entry' | 'graph' | 'list';
@@ -36,63 +36,21 @@ export default function WeightAdminPage() {
   }, []);
 
   const [tab, setTab] = useState<Tab>('entry');
-  // 초기 렌더 시점에 캐시를 동기적으로 읽어서 첫 페인트부터 바로 그려지게 함(일정 관리와 동일한 패턴) — 실제로 최신인지는 마운트 후 백그라운드에서 검증
-  const [records, setRecords] = useState<WeightRecord[]>(() => readWeightCache()?.records ?? []);
-  const [isLoading, setIsLoading] = useState(false);
-  const beginRequest = useLatestRequestGuard();
-
-  // 마운트 시점과 CRUD 성공 직후 둘 다 이 함수로 재조회 — "그 항목만 로컬 patch + meta만 재기록"하는
-  // 방식은 다른 기록이 앱 밖(SQL 등)에서 바뀐 경우 그 기록이 영영 캐시에 낡은 채로 박제되는 문제가 있어서
-  // (meta가 patch 시점 기준으로 다시 "최신"이라고 찍혀버려 다음번 마운트 때도 불일치가 감지 안 됨),
-  // 일정 관리(ScheduleCalendarTab)의 fetchEvents()와 동일하게 매번 서버에서 전체를 다시 받아오는 방식으로 통일.
-  // visibilitychange 재검증과 CRUD 직후 호출이 겹치면 먼저 시작한 요청의 응답이 나중에 도착할 수 있어서
-  // (레이스), beginRequest/isStale로 그 시점 가장 최근 호출이 아니면 결과를 버림(ScheduleCalendarTab과 동일 패턴)
-  const fetchAll = useCallback(() => {
-    if (!auth.isAuthenticated) return;
-    const isStale = beginRequest();
-
-    const cache = readWeightCache();
-    // 캐시가 없는 진짜 첫 조회일 때만 로딩 표시 — 캐시가 있으면 이미 화면엔 그 데이터가 보이고 있어서 백그라운드에서 조용히 검증만 함
-    setIsLoading(!cache);
-
-    const fetchFromServer = (meta: WeightMeta | null) => {
-      weightApi.getAll()
-        .then((data) => {
-          if (isStale()) return;
-          setRecords(data);
-          if (meta) writeWeightCache({ meta, records: data });
-        })
-        .catch(err => { if (!isStale()) showToast(err instanceof Error ? err.message : '불러오기에 실패했습니다', 'error'); })
-        .finally(() => { if (!isStale()) setIsLoading(false); });
-    };
-
-    weightApi.getMeta()
-      .then((meta) => {
-        if (isStale()) return;
-        const cacheValid = !!cache && isSameWeightMeta(cache.meta, meta);
-        // 캐시가 이미 정확한 걸로 확인됨 — 화면엔 이미 그 데이터가 보이고 있으므로 더 할 일 없음
-        if (cacheValid) { setIsLoading(false); return; }
-        fetchFromServer(meta);
-      })
-      // meta 확인 자체가 실패하면(오프라인 등) 캐시 검증을 포기하고 그냥 서버에서 직접 불러옴
-      .catch(() => { if (!isStale()) fetchFromServer(null); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.isAuthenticated, beginRequest]);
-
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
-
-  // 모바일에서 홈 화면 앱을 백그라운드로 보냈다가 다시 보는 것만으로는(완전 종료 후 재실행과 달리)
-  // 컴포넌트가 다시 마운트되지 않아 위 useEffect가 재실행되지 않음 — 그래서 화면이 다시 보이는 시점마다
-  // (visibilitychange) 별도로 meta를 재검증
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') fetchAll();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [fetchAll]);
+  // 마운트 시점 + visibilitychange 재검증 + CRUD 성공 후 재조회를 useCachedFetch 하나로 통일
+  // (일정/가계 현황 페이지와 거의 동일하게 복붙돼 있던 코드 — 캐시 유효성 검증/레이스 가드 로직은 그쪽 hook 참고)
+  const { data: records, isLoading, refetch: fetchAll } = useCachedFetch({
+    enabled: auth.isAuthenticated,
+    initialData: [] as WeightRecord[],
+    readCache: () => {
+      const cache = readWeightCache();
+      return cache ? { meta: cache.meta, data: cache.records } : null;
+    },
+    writeCache: ({ meta, data }) => writeWeightCache({ meta, records: data }),
+    isSameMeta: isSameWeightMeta,
+    fetchMeta: () => weightApi.getMeta(),
+    fetchData: () => weightApi.getAll(),
+    onError: (message) => showToast(message, 'error'),
+  });
 
   const handleUpsert = () => {
     fetchAll();

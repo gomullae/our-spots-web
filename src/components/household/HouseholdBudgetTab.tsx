@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import HouseholdIncomeForm from './HouseholdIncomeForm';
 import HouseholdItemForm from './HouseholdItemForm';
 import HouseholdHistoryModal from './HouseholdHistoryModal';
 import { Toast } from '@/hooks/useToast';
-import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
+import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { householdBudgetApi } from '@/services/api';
-import { HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetMeta, HouseholdIncome, HouseholdIncomePayload, HouseholdSectionType } from '@/types';
+import { HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetOverview, HouseholdIncome, HouseholdIncomePayload, HouseholdSectionType } from '@/types';
 import { HOUSEHOLD_ASSET_KIND_LABELS, HOUSEHOLD_PAYER_LABELS } from '@/constants/householdConfig';
-import { formatAmount } from '@/utils/expenseFormat';
+import { formatAmount, formatAmountAsDeduction } from '@/utils/expenseFormat';
 import { isSameHouseholdMeta, readHouseholdCache, writeHouseholdCache } from '@/utils/householdCache';
+import { groupByFirstOccurrence, rankByFirstOccurrence } from '@/utils/groupByFirstOccurrence';
 
 interface HouseholdBudgetTabProps {
   showToast: (message: string, type?: Toast['type']) => void;
@@ -26,13 +27,7 @@ type HistoryTarget = { kind: 'income' | 'item'; id: number; label: string };
 // 이체일이 있는 항목이 먼저·없는 항목이 나중, 3차로 이체일이 있는 항목끼리는 1일에 가까운 순 오름차순,
 // 이체일까지 같으면 금액 내림차순
 function sortByAutoDebitAndDebitDay(groupItems: HouseholdBudgetItem[]): HouseholdBudgetItem[] {
-  const bankOrder = new Map<string, number>();
-  [...groupItems]
-    .sort((a, b) => a.id - b.id)
-    .forEach((item) => {
-      const key = item.autoDebitBank || '';
-      if (!bankOrder.has(key)) bankOrder.set(key, bankOrder.size);
-    });
+  const bankOrder = rankByFirstOccurrence(groupItems, (i) => i.autoDebitBank || '', (i) => i.id);
   return [...groupItems].sort((a, b) => {
     const bankA = bankOrder.get(a.autoDebitBank || '') ?? 0;
     const bankB = bankOrder.get(b.autoDebitBank || '') ?? 0;
@@ -45,128 +40,80 @@ function sortByAutoDebitAndDebitDay(groupItems: HouseholdBudgetItem[]): Househol
   });
 }
 
+const EMPTY_OVERVIEW: HouseholdBudgetOverview = { incomes: [], items: [] };
+
 // "Our Budget" 4번째 탭 "가계 현황" — 원본 스프레드시트("하민이 가족 가계부")의 표 양식과 섹션 순서를 그대로 재현:
 // 요약 → 고정비 → 자산 현황 → 지출예정액 → 구독료. 각 표는 LogHistoryTab의 표 스타일(overflow-x-auto +
 // min-w-full text-xs)을 그대로 재사용 — 컬럼이 많아서 모바일에서는 가로 스크롤로 봄
 export default function HouseholdBudgetTab({ showToast, showConfirm }: HouseholdBudgetTabProps) {
-  // 초기 렌더 시점에 캐시를 동기적으로 읽어서 첫 페인트부터 바로 그려지게 함(체중 관리와 동일한 패턴) —
-  // 실제로 최신인지는 마운트 후 백그라운드에서 검증
-  const [incomes, setIncomes] = useState<HouseholdIncome[]>(() => readHouseholdCache()?.overview.incomes ?? []);
-  const [items, setItems] = useState<HouseholdBudgetItem[]>(() => readHouseholdCache()?.overview.items ?? []);
-  const [isLoading, setIsLoading] = useState(false);
-  const beginRequest = useLatestRequestGuard();
+  // 마운트 시점 + visibilitychange 재검증 + CRUD 성공 후 재조회를 useCachedFetch 하나로 통일
+  // (체중 관리 페이지와 거의 동일하게 복붙돼 있던 코드 — 캐시 유효성 검증/레이스 가드 로직은 그쪽 hook 참고)
+  const { data: overview, isLoading, refetch: fetchAll } = useCachedFetch({
+    initialData: EMPTY_OVERVIEW,
+    readCache: () => {
+      const cache = readHouseholdCache();
+      return cache ? { meta: cache.meta, data: cache.overview } : null;
+    },
+    writeCache: ({ meta, data }) => writeHouseholdCache({ meta, overview: data }),
+    isSameMeta: isSameHouseholdMeta,
+    fetchMeta: () => householdBudgetApi.getMeta(),
+    fetchData: () => householdBudgetApi.getOverview(),
+    onError: (message) => showToast(message, 'error'),
+  });
+  const { incomes, items } = overview;
 
   const [incomeForm, setIncomeForm] = useState<IncomeFormState | null>(null);
   const [itemForm, setItemForm] = useState<ItemFormState | null>(null);
   const [historyTarget, setHistoryTarget] = useState<HistoryTarget | null>(null);
 
-  // 마운트 시점과 CRUD 성공 직후 둘 다 이 함수로 재조회 — "그 항목만 로컬 patch + meta만 재기록"하는
-  // 방식은 다른 항목이 앱 밖(SQL 등)에서 바뀐 경우 그 항목이 영영 캐시에 낡은 채로 박제되는 문제가 있어서
-  // (meta가 patch 시점 기준으로 다시 "최신"이라고 찍혀버려 다음번 마운트 때도 불일치가 감지 안 됨),
-  // 일정 관리(ScheduleCalendarTab)의 fetchEvents()와 동일하게 매번 서버에서 전체를 다시 받아오는 방식으로 통일.
-  // visibilitychange 재검증과 CRUD 직후 호출이 겹치면 먼저 시작한 요청의 응답이 나중에 도착할 수 있어서
-  // (레이스), beginRequest/isStale로 그 시점 가장 최근 호출이 아니면 결과를 버림(ScheduleCalendarTab과 동일 패턴)
-  const fetchAll = useCallback(() => {
-    const isStale = beginRequest();
-    const cache = readHouseholdCache();
-    // 캐시가 없는 진짜 첫 조회일 때만 로딩 표시 — 캐시가 있으면 이미 화면엔 그 데이터가 보이고 있어서 백그라운드에서 조용히 검증만 함
-    setIsLoading(!cache);
+  // ===== 계산 ===== 폼 열기/닫기 등 items/incomes와 무관한 리렌더에서는 다시 계산하지 않도록 useMemo로 묶음
+  const {
+    fixedCostGroups,
+    totalFixedCost,
+    balance,
+    assetGroups,
+    netWorth,
+    plannedItems,
+    subscriptionItems,
+  } = useMemo(() => {
+    const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
 
-    const fetchFromServer = (meta: HouseholdBudgetMeta | null) => {
-      householdBudgetApi.getOverview()
-        .then((data) => {
-          if (isStale()) return;
-          setIncomes(data.incomes);
-          setItems(data.items);
-          if (meta) writeHouseholdCache({ meta, overview: data });
-        })
-        // 배경 재검증 실패로 화면 전체를 비우지 않고(캐시 데이터는 계속 보여줌) 토스트로만 알림
-        .catch((err) => { if (!isStale()) showToast(err instanceof Error ? err.message : '불러오기에 실패했습니다', 'error'); })
-        .finally(() => { if (!isStale()) setIsLoading(false); });
-    };
-
-    householdBudgetApi.getMeta()
-      .then((meta) => {
-        if (isStale()) return;
-        const cacheValid = !!cache && isSameHouseholdMeta(cache.meta, meta);
-        // 캐시가 이미 정확한 걸로 확인됨 — 화면엔 이미 그 데이터가 보이고 있으므로 더 할 일 없음
-        if (cacheValid) { setIsLoading(false); return; }
-        fetchFromServer(meta);
-      })
-      // meta 확인 자체가 실패하면(오프라인 등) 캐시 검증을 포기하고 그냥 서버에서 직접 불러옴
-      .catch(() => { if (!isStale()) fetchFromServer(null); });
-  }, [beginRequest, showToast]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchAll();
-  }, [fetchAll]);
-
-  // 모바일에서 홈 화면 앱을 백그라운드로 보냈다가 다시 보는 것만으로는(완전 종료 후 재실행과 달리)
-  // 컴포넌트가 다시 마운트되지 않아 위 useEffect가 재실행되지 않음 — 그래서 화면이 다시 보이는 시점마다
-  // (visibilitychange) 별도로 meta를 재검증. 캐시를 지우는 게 아니라 getMeta()만 가볍게 다시 확인해서
-  // 실제로 달라졌을 때만 fetchFromServer가 도는 구조라 대부분은 이 가벼운 호출 한 번으로 끝남
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') fetchAll();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [fetchAll]);
-
-  // ===== 계산 =====
-  const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
-
-  // 계좌(account)별로 그룹핑 — 어떤 항목이 어느 계좌 소계에 속하는지는 항목 이름을 하드코딩하지 않고
-  // 항상 item.account 데이터로만 판단. 계좌 순서는 그 계좌에 속한 항목 중 가장 먼저 등록된(id가 가장 작은)
-  // 항목 기준으로 정해서, 원본 스프레드시트의 계좌 블록 순서(공과금통장 → 진우통장 → 생활비통장)와 자연히 일치함
-  const fixedCostGroups = (() => {
-    const byId = [...items.filter((i) => i.sectionType === 'FIXED_COST')].sort((a, b) => a.id - b.id);
-    const order: string[] = [];
-    const grouped = new Map<string, HouseholdBudgetItem[]>();
-    byId.forEach((item) => {
-      const key = item.account || '미분류';
-      if (!grouped.has(key)) {
-        grouped.set(key, []);
-        order.push(key);
-      }
-      grouped.get(key)!.push(item);
-    });
-    return order.map((account) => {
-      const groupItems = sortByAutoDebitAndDebitDay(grouped.get(account)!);
+    // 계좌(account)별로 그룹핑 — 어떤 항목이 어느 계좌 소계에 속하는지는 항목 이름을 하드코딩하지 않고
+    // 항상 item.account 데이터로만 판단. 계좌 순서는 그 계좌에 속한 항목 중 가장 먼저 등록된(id가 가장 작은)
+    // 항목 기준으로 정해서, 원본 스프레드시트의 계좌 블록 순서(공과금통장 → 진우통장 → 생활비통장)와 자연히 일치함
+    const fixedCostGrouped = groupByFirstOccurrence(
+      items.filter((i) => i.sectionType === 'FIXED_COST'),
+      (i) => i.account || '미분류',
+      (i) => i.id
+    );
+    const fixedCostGroups = [...fixedCostGrouped.entries()].map(([account, groupItemsRaw]) => {
+      const groupItems = sortByAutoDebitAndDebitDay(groupItemsRaw);
       const total = groupItems.reduce((sum, i) => sum + i.amount, 0);
       // 공과금통장처럼 한 계좌에 일단 다 모였다가, 초영 대상분만 초영통장으로 다시 이체되는 구조를 표현하기 위한 서브 집계
       const choyoungTotal = groupItems.filter((i) => i.payer === 'CHOYOUNG').reduce((sum, i) => sum + i.amount, 0);
       return { account, items: groupItems, total, choyoungTotal };
     });
-  })();
-  const totalFixedCost = fixedCostGroups.reduce((sum, g) => sum + g.total, 0);
-  const balance = totalIncome - totalFixedCost;
+    const totalFixedCost = fixedCostGroups.reduce((sum, g) => sum + g.total, 0);
+    const balance = totalIncome - totalFixedCost;
 
-  // 자산도 동일한 패턴 — assetKind(ASSET/LIABILITY)로 그룹핑
-  const assetGroups = (['ASSET', 'LIABILITY'] as const).map((kind) => {
-    const groupItems = [...items.filter((i) => i.sectionType === 'ASSET' && i.assetKind === kind)].sort((a, b) => a.id - b.id);
-    const total = groupItems.reduce((sum, i) => sum + i.amount, 0);
-    return { kind, items: groupItems, total };
-  });
-  const totalAssets = assetGroups.find((g) => g.kind === 'ASSET')?.total ?? 0;
-  const totalLiabilities = assetGroups.find((g) => g.kind === 'LIABILITY')?.total ?? 0;
-  const netWorth = totalAssets - totalLiabilities;
+    // 자산도 동일한 패턴 — assetKind(ASSET/LIABILITY)로 그룹핑
+    const assetGroups = (['ASSET', 'LIABILITY'] as const).map((kind) => {
+      const groupItems = [...items.filter((i) => i.sectionType === 'ASSET' && i.assetKind === kind)].sort((a, b) => a.id - b.id);
+      const total = groupItems.reduce((sum, i) => sum + i.amount, 0);
+      return { kind, items: groupItems, total };
+    });
+    const totalAssets = assetGroups.find((g) => g.kind === 'ASSET')?.total ?? 0;
+    const totalLiabilities = assetGroups.find((g) => g.kind === 'LIABILITY')?.total ?? 0;
+    const netWorth = totalAssets - totalLiabilities;
 
-  const plannedItems = [...items.filter((i) => i.sectionType === 'PLANNED_EXPENSE')]
-    .sort((a, b) => (a.plannedMonth || '').localeCompare(b.plannedMonth || ''));
-  // 1차: 대상자별로 묶기(그룹 등장 순서는 그 대상자가 처음 등장한 항목의 id 기준 — 데이터 등록순).
-  // 2차(같은 대상자 안에서): 이체일이 있는 항목이 먼저(1일에 가까운 순 오름차순), 없는 항목은 뒤에 금액 내림차순
-  const subscriptionItems = (() => {
-    const raw = items.filter((i) => i.sectionType === 'SUBSCRIPTION');
-    const payerOrder = new Map<string, number>();
-    [...raw]
-      .sort((a, b) => a.id - b.id)
-      .forEach((item) => {
-        const key = item.payer || '';
-        if (!payerOrder.has(key)) payerOrder.set(key, payerOrder.size);
-      });
-    return [...raw].sort((a, b) => {
+    const plannedItems = [...items.filter((i) => i.sectionType === 'PLANNED_EXPENSE')]
+      .sort((a, b) => (a.plannedMonth || '').localeCompare(b.plannedMonth || ''));
+
+    // 1차: 대상자별로 묶기(그룹 등장 순서는 그 대상자가 처음 등장한 항목의 id 기준 — 데이터 등록순).
+    // 2차(같은 대상자 안에서): 이체일이 있는 항목이 먼저(1일에 가까운 순 오름차순), 없는 항목은 뒤에 금액 내림차순
+    const subscriptionRaw = items.filter((i) => i.sectionType === 'SUBSCRIPTION');
+    const payerOrder = rankByFirstOccurrence(subscriptionRaw, (i) => i.payer || '', (i) => i.id);
+    const subscriptionItems = [...subscriptionRaw].sort((a, b) => {
       const payerA = payerOrder.get(a.payer || '') ?? 0;
       const payerB = payerOrder.get(b.payer || '') ?? 0;
       if (payerA !== payerB) return payerA - payerB;
@@ -175,7 +122,9 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
       if (b.debitDay != null) return 1;
       return b.amount - a.amount || a.id - b.id;
     });
-  })();
+
+    return { fixedCostGroups, totalFixedCost, balance, assetGroups, netWorth, plannedItems, subscriptionItems };
+  }, [incomes, items]);
 
   // ===== 수입 CRUD ===== (저장/삭제 성공 후엔 로컬 patch 대신 fetchAll()로 서버에서 통째로 다시 받아옴)
   const handleCreateIncome = async (data: HouseholdIncomePayload) => {
@@ -233,8 +182,8 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
 
   if (isLoading) return <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>;
 
-  const isNewItemForm = itemForm !== null && 'mode' in itemForm;
-  const isEditItemForm = itemForm !== null && !('mode' in itemForm);
+  // TS가 'mode' in 체크로 알아서 HouseholdBudgetItem으로 좁혀줘서 'as HouseholdBudgetItem' 캐스팅 없이 씀
+  const editItem = itemForm && !('mode' in itemForm) ? itemForm : null;
 
   return (
     <div className="flex-1 overflow-y-auto p-3 space-y-5">
@@ -250,7 +199,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
         ))}
         <tr className="bg-gray-50 font-medium">
           <Td>고정비</Td>
-          <Td className="text-right text-gray-500">- {formatAmount(totalFixedCost)}</Td>
+          <Td className="text-right text-gray-500">{formatAmountAsDeduction(totalFixedCost)}</Td>
           <Td></Td>
         </tr>
         <tr className="bg-blue-50 font-medium">
@@ -327,7 +276,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
           <tr key={`${kind}-header`} className="bg-gray-100 font-medium border-t-2 border-gray-200">
             <Td colSpan={2}>{kind === 'ASSET' ? '자본 계' : '부채 계'}</Td>
             <Td className={`text-right ${kind === 'LIABILITY' ? 'text-gray-500' : ''}`}>
-              {kind === 'LIABILITY' ? `- ${formatAmount(total)}` : formatAmount(total)}
+              {kind === 'LIABILITY' ? formatAmountAsDeduction(total) : formatAmount(total)}
             </Td>
             <Td colSpan={3}></Td>
           </tr>,
@@ -404,29 +353,22 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
 
       {itemForm && (
         <HouseholdItemForm
-          isEditMode={isEditItemForm}
+          isEditMode={editItem !== null}
           initialSectionType={itemForm.sectionType}
-          initialAssetKind={isEditItemForm ? (itemForm as HouseholdBudgetItem).assetKind : undefined}
-          initialLabel={isEditItemForm ? (itemForm as HouseholdBudgetItem).label : undefined}
-          initialVendor={isEditItemForm ? (itemForm as HouseholdBudgetItem).vendor : undefined}
-          initialAmount={isEditItemForm ? (itemForm as HouseholdBudgetItem).amount : undefined}
-          initialPayer={isEditItemForm ? (itemForm as HouseholdBudgetItem).payer : undefined}
-          initialAutoDebitBank={isEditItemForm ? (itemForm as HouseholdBudgetItem).autoDebitBank : undefined}
-          initialDebitDay={isEditItemForm ? (itemForm as HouseholdBudgetItem).debitDay : undefined}
-          initialAccount={isEditItemForm ? (itemForm as HouseholdBudgetItem).account : undefined}
-          initialPlannedMonth={isEditItemForm ? (itemForm as HouseholdBudgetItem).plannedMonth : undefined}
-          initialMemo={isEditItemForm ? (itemForm as HouseholdBudgetItem).memo : undefined}
-          onSubmit={isNewItemForm ? handleCreateItem : handleUpdateItem}
+          initialAssetKind={editItem?.assetKind}
+          initialLabel={editItem?.label}
+          initialVendor={editItem?.vendor}
+          initialAmount={editItem?.amount}
+          initialPayer={editItem?.payer}
+          initialAutoDebitBank={editItem?.autoDebitBank}
+          initialDebitDay={editItem?.debitDay}
+          initialAccount={editItem?.account}
+          initialPlannedMonth={editItem?.plannedMonth}
+          initialMemo={editItem?.memo}
+          onSubmit={editItem ? handleUpdateItem : handleCreateItem}
           onClose={() => setItemForm(null)}
-          onDelete={isEditItemForm ? () => handleDeleteItem(itemForm as HouseholdBudgetItem) : undefined}
-          onHistory={
-            isEditItemForm
-              ? () => {
-                  const item = itemForm as HouseholdBudgetItem;
-                  setHistoryTarget({ kind: 'item', id: item.id, label: item.label });
-                }
-              : undefined
-          }
+          onDelete={editItem ? () => handleDeleteItem(editItem) : undefined}
+          onHistory={editItem ? () => setHistoryTarget({ kind: 'item', id: editItem.id, label: editItem.label }) : undefined}
         />
       )}
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import FormModal from '@/components/FormModal';
+import { useCommaAmountInput } from '@/hooks/useCommaAmountInput';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { HOUSEHOLD_ASSET_KIND_LABELS, HOUSEHOLD_PAYERS, HOUSEHOLD_PAYER_LABELS, HOUSEHOLD_SECTIONS, HOUSEHOLD_SECTION_LABELS } from '@/constants/householdConfig';
 import { HouseholdAssetKind, HouseholdBudgetItemPayload, HouseholdPayer, HouseholdSectionType } from '@/types';
@@ -47,7 +48,7 @@ export default function HouseholdItemForm({
   const [assetKind, setAssetKind] = useState<HouseholdAssetKind>(initialAssetKind || 'ASSET');
   const [label, setLabel] = useState(initialLabel || '');
   const [vendor, setVendor] = useState(initialVendor || '');
-  const [amount, setAmount] = useState(initialAmount != null ? initialAmount.toLocaleString('ko-KR') : '');
+  const { amount, amountValue, handleAmountChange } = useCommaAmountInput(initialAmount);
   const [payer, setPayer] = useState<HouseholdPayer | ''>(initialPayer || '');
   const [autoDebitBank, setAutoDebitBank] = useState(initialAutoDebitBank || '');
   const [debitDay, setDebitDay] = useState(initialDebitDay != null ? String(initialDebitDay) : '');
@@ -58,14 +59,8 @@ export default function HouseholdItemForm({
   const [error, setError] = useState<string | undefined>();
   useEscapeKey(onClose);
 
-  const amountValue = Number(amount.replace(/,/g, ''));
   // 유튜브 구독(영철 지원으로 0원)처럼 정말 0원인 항목도 있어서 amountValue > 0이 아니라 >= 0으로 허용
   const isValid = label.trim().length > 0 && amount !== '' && amountValue >= 0;
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/[^0-9]/g, '');
-    setAmount(digits ? Number(digits).toLocaleString('ko-KR') : '');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

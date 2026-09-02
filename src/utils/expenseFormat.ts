@@ -4,6 +4,12 @@ export function formatAmount(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
 }
 
+// 가계 현황(고정비 총계/부채 계처럼 "이 금액만큼 차감된다"를 항상 마이너스로 표시하는 항목)이 각자
+// `- ${formatAmount(x)}`로 직접 이어붙이던 걸 통일 — amount 자체의 부호와 무관하게 항상 "- " 접두
+export function formatAmountAsDeduction(amount: number): string {
+  return `- ${formatAmount(amount)}`;
+}
+
 export function sumAmount(records: ExpenseRecord[]): number {
   return records.reduce((sum, r) => sum + r.amount, 0);
 }

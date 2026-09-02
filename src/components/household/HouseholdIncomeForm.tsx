@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import FormModal from '@/components/FormModal';
+import { useCommaAmountInput } from '@/hooks/useCommaAmountInput';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { HouseholdIncomePayload } from '@/types';
 
@@ -27,19 +28,13 @@ export default function HouseholdIncomeForm({
   onHistory,
 }: HouseholdIncomeFormProps) {
   const [label, setLabel] = useState(initialLabel || '');
-  const [amount, setAmount] = useState(initialAmount != null ? initialAmount.toLocaleString('ko-KR') : '');
+  const { amount, amountValue, handleAmountChange } = useCommaAmountInput(initialAmount);
   const [memo, setMemo] = useState(initialMemo || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   useEscapeKey(onClose);
 
-  const amountValue = Number(amount.replace(/,/g, ''));
   const isValid = label.trim().length > 0 && amountValue > 0;
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/[^0-9]/g, '');
-    setAmount(digits ? Number(digits).toLocaleString('ko-KR') : '');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
