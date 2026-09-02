@@ -188,6 +188,8 @@ export interface TableData {
 export type HouseholdSectionType = 'FIXED_COST' | 'ASSET' | 'PLANNED_EXPENSE' | 'SUBSCRIPTION';
 export type HouseholdAssetKind = 'ASSET' | 'LIABILITY';
 export type HouseholdPayer = 'JINWOO' | 'CHOYOUNG' | 'FAMILY';
+export type HouseholdAccount = 'UTILITY_ACCOUNT' | 'JINWOO_ACCOUNT' | 'LIVING_ACCOUNT' | 'OTHER';
+export type HouseholdAutoDebitSource = 'SHINHAN_BANK' | 'WOORI_BANK' | 'CHOYOUNG_ACCOUNT' | 'HYUNDAI_CARD' | 'KB_CARD' | 'OTHER';
 export type HouseholdHistoryAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE';
 
 export interface HouseholdIncome {
@@ -214,9 +216,9 @@ export interface HouseholdBudgetItem {
   vendor?: string;
   amount: number;
   payer?: HouseholdPayer;
-  autoDebitBank?: string;
+  autoDebitBank?: HouseholdAutoDebitSource;
   debitDay?: number;
-  account?: string;
+  account?: HouseholdAccount;
   plannedMonth?: string;
   memo?: string;
   createdAt: string;
@@ -231,9 +233,9 @@ export interface HouseholdBudgetItemPayload {
   vendor?: string;
   amount: number;
   payer?: HouseholdPayer;
-  autoDebitBank?: string;
+  autoDebitBank?: HouseholdAutoDebitSource;
   debitDay?: number;
-  account?: string;
+  account?: HouseholdAccount;
   plannedMonth?: string;
   memo?: string;
 }
@@ -257,9 +259,9 @@ export interface HouseholdHistoryEntry {
   vendor?: string;
   amount: number;
   payer?: HouseholdPayer;
-  autoDebitBank?: string;
+  autoDebitBank?: HouseholdAutoDebitSource;
   debitDay?: number;
-  account?: string;
+  account?: HouseholdAccount;
   plannedMonth?: string;
   memo?: string;
   createdAt: string;

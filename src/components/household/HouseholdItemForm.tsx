@@ -4,8 +4,18 @@ import { useState } from 'react';
 import FormModal from '@/components/FormModal';
 import { useCommaAmountInput } from '@/hooks/useCommaAmountInput';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
-import { HOUSEHOLD_ASSET_KIND_LABELS, HOUSEHOLD_PAYERS, HOUSEHOLD_PAYER_LABELS, HOUSEHOLD_SECTIONS, HOUSEHOLD_SECTION_LABELS } from '@/constants/householdConfig';
-import { HouseholdAssetKind, HouseholdBudgetItemPayload, HouseholdPayer, HouseholdSectionType } from '@/types';
+import {
+  HOUSEHOLD_ACCOUNT_LABELS,
+  HOUSEHOLD_ACCOUNTS,
+  HOUSEHOLD_ASSET_KIND_LABELS,
+  HOUSEHOLD_AUTO_DEBIT_LABELS,
+  HOUSEHOLD_AUTO_DEBIT_SOURCES,
+  HOUSEHOLD_PAYERS,
+  HOUSEHOLD_PAYER_LABELS,
+  HOUSEHOLD_SECTIONS,
+  HOUSEHOLD_SECTION_LABELS,
+} from '@/constants/householdConfig';
+import { HouseholdAccount, HouseholdAssetKind, HouseholdAutoDebitSource, HouseholdBudgetItemPayload, HouseholdPayer, HouseholdSectionType } from '@/types';
 
 interface HouseholdItemFormProps {
   initialSectionType?: HouseholdSectionType;
@@ -14,9 +24,9 @@ interface HouseholdItemFormProps {
   initialVendor?: string;
   initialAmount?: number;
   initialPayer?: HouseholdPayer;
-  initialAutoDebitBank?: string;
+  initialAutoDebitBank?: HouseholdAutoDebitSource;
   initialDebitDay?: number;
-  initialAccount?: string;
+  initialAccount?: HouseholdAccount;
   initialPlannedMonth?: string;
   initialMemo?: string;
   isEditMode?: boolean;
@@ -50,9 +60,9 @@ export default function HouseholdItemForm({
   const [vendor, setVendor] = useState(initialVendor || '');
   const { amount, amountValue, handleAmountChange } = useCommaAmountInput(initialAmount);
   const [payer, setPayer] = useState<HouseholdPayer | ''>(initialPayer || '');
-  const [autoDebitBank, setAutoDebitBank] = useState(initialAutoDebitBank || '');
+  const [autoDebitBank, setAutoDebitBank] = useState<HouseholdAutoDebitSource | ''>(initialAutoDebitBank || '');
   const [debitDay, setDebitDay] = useState(initialDebitDay != null ? String(initialDebitDay) : '');
-  const [account, setAccount] = useState(initialAccount || '');
+  const [account, setAccount] = useState<HouseholdAccount | ''>(initialAccount || '');
   const [plannedMonth, setPlannedMonth] = useState(initialPlannedMonth || '');
   const [memo, setMemo] = useState(initialMemo || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,9 +85,9 @@ export default function HouseholdItemForm({
         vendor: vendor.trim() || undefined,
         amount: amountValue,
         payer: payer || undefined,
-        autoDebitBank: (sectionType === 'FIXED_COST' || sectionType === 'SUBSCRIPTION') ? (autoDebitBank.trim() || undefined) : undefined,
+        autoDebitBank: (sectionType === 'FIXED_COST' || sectionType === 'SUBSCRIPTION') ? (autoDebitBank || undefined) : undefined,
         debitDay: (sectionType === 'FIXED_COST' || sectionType === 'SUBSCRIPTION') && debitDay ? Number(debitDay) : undefined,
-        account: sectionType === 'FIXED_COST' ? (account.trim() || undefined) : undefined,
+        account: sectionType === 'FIXED_COST' ? (account || undefined) : undefined,
         plannedMonth: sectionType === 'PLANNED_EXPENSE' ? (plannedMonth.trim() || undefined) : undefined,
         memo: memo.trim() || undefined,
       });
@@ -183,13 +193,16 @@ export default function HouseholdItemForm({
         <>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">자동이체 은행</label>
-            <input
-              type="text"
+            <select
               value={autoDebitBank}
-              onChange={(e) => setAutoDebitBank(e.target.value)}
-              placeholder="예: 신한은행"
+              onChange={(e) => setAutoDebitBank(e.target.value as HouseholdAutoDebitSource | '')}
               className="w-full px-3 py-2 border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">선택 안 함</option>
+              {HOUSEHOLD_AUTO_DEBIT_SOURCES.map((b) => (
+                <option key={b} value={b}>{HOUSEHOLD_AUTO_DEBIT_LABELS[b]}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">이체일</label>
@@ -210,13 +223,16 @@ export default function HouseholdItemForm({
       {sectionType === 'FIXED_COST' && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">연결계좌</label>
-          <input
-            type="text"
+          <select
             value={account}
-            onChange={(e) => setAccount(e.target.value)}
-            placeholder="예: 공과금통장"
+            onChange={(e) => setAccount(e.target.value as HouseholdAccount | '')}
             className="w-full px-3 py-2 border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          >
+            <option value="">선택 안 함</option>
+            {HOUSEHOLD_ACCOUNTS.map((a) => (
+              <option key={a} value={a}>{HOUSEHOLD_ACCOUNT_LABELS[a]}</option>
+            ))}
+          </select>
         </div>
       )}
 

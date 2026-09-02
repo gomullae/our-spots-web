@@ -8,7 +8,7 @@ import { Toast } from '@/hooks/useToast';
 import { useCachedFetch } from '@/hooks/useCachedFetch';
 import { householdBudgetApi } from '@/services/api';
 import { HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetOverview, HouseholdIncome, HouseholdIncomePayload, HouseholdSectionType } from '@/types';
-import { HOUSEHOLD_ASSET_KIND_LABELS, HOUSEHOLD_PAYER_LABELS } from '@/constants/householdConfig';
+import { HOUSEHOLD_ACCOUNT_LABELS, HOUSEHOLD_ASSET_KIND_LABELS, HOUSEHOLD_AUTO_DEBIT_LABELS, HOUSEHOLD_PAYER_LABELS } from '@/constants/householdConfig';
 import { formatAmount, formatAmountAsDeduction } from '@/utils/expenseFormat';
 import { isSameHouseholdMeta, readHouseholdCache, writeHouseholdCache } from '@/utils/householdCache';
 import { groupByFirstOccurrence, rankByFirstOccurrence } from '@/utils/groupByFirstOccurrence';
@@ -83,7 +83,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
     // 항목 기준으로 정해서, 원본 스프레드시트의 계좌 블록 순서(공과금통장 → 진우통장 → 생활비통장)와 자연히 일치함
     const fixedCostGrouped = groupByFirstOccurrence(
       items.filter((i) => i.sectionType === 'FIXED_COST'),
-      (i) => i.account || '미분류',
+      (i) => (i.account ? HOUSEHOLD_ACCOUNT_LABELS[i.account] : '미분류'),
       (i) => i.id
     );
     const fixedCostGroups = [...fixedCostGrouped.entries()].map(([account, groupItemsRaw]) => {
@@ -229,7 +229,7 @@ export default function HouseholdBudgetTab({ showToast, showConfirm }: Household
                 item.vendor || '',
                 <span key="amount" className="block text-right">{formatAmount(item.amount)}</span>,
                 item.payer ? HOUSEHOLD_PAYER_LABELS[item.payer] : '',
-                item.autoDebitBank || '',
+                item.autoDebitBank ? HOUSEHOLD_AUTO_DEBIT_LABELS[item.autoDebitBank] : '',
                 item.debitDay != null ? `${item.debitDay}일` : '',
               ]}
               memo={item.memo}
