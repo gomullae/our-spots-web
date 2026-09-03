@@ -162,6 +162,12 @@ export type ScheduleCategory =
   | 'TRAVEL'
   | 'ANNIVERSARY';
 
+export interface ScheduleMemo {
+  id: number;
+  content: string;
+  createdAt: string;
+}
+
 export interface ScheduleEvent {
   id: number;
   title: string;
@@ -169,11 +175,11 @@ export interface ScheduleEvent {
   startAt: string;
   endAt: string;
   allDay: boolean;
-  memo?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
   photos: Photo[];
+  memos: ScheduleMemo[];
 }
 
 export interface ScheduleEventPayload {
@@ -182,7 +188,9 @@ export interface ScheduleEventPayload {
   startAt: string;
   endAt: string;
   allDay: boolean;
-  memo?: string;
+  // 이 저장에 새로 딸려 들어오는(아직 confirm 안 된) 사진 개수 — 텔레그램 알림에 "사진 N장 추가됨"
+  // 한 줄을 넣기 위한 신호일 뿐 DB에 저장되는 값이 아님(ScheduleEventRequest.newPhotoCount 참고)
+  newPhotoCount?: number;
 }
 
 export interface ScheduleMeta {

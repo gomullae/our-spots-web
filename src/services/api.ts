@@ -1,4 +1,4 @@
-import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetMeta, HouseholdBudgetOverview, HouseholdHistoryEntry, HouseholdIncome, HouseholdIncomePayload, Marker, PageResponse, Photo, PhotoAdminEntry, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceRecentSortBy, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
+import { ApiResponse, BackupPeriod, BackupTable, ExpenseMeta, ExpenseRecord, ExpenseRecordPayload, HouseholdBudgetItem, HouseholdBudgetItemPayload, HouseholdBudgetMeta, HouseholdBudgetOverview, HouseholdHistoryEntry, HouseholdIncome, HouseholdIncomePayload, Marker, PageResponse, Photo, PhotoAdminEntry, PhotoEntityType, PhotoPresignResponse, Place, PlaceDetail, PlaceRecentSortBy, PlaceType, ScheduleEvent, ScheduleEventPayload, ScheduleMemo, ScheduleMeta, TableData, WeightMeta, WeightRecord, WeightRecordUpsertPayload } from '@/types';
 import { clearExpenseCache } from '@/utils/expenseCache';
 import { clearHouseholdCache } from '@/utils/householdCache';
 import { clearScheduleCache } from '@/utils/scheduleCache';
@@ -365,6 +365,35 @@ export const scheduleApi = {
   restore: (id: number) => {
     return fetchApi<ScheduleEvent>(`/schedules/${id}/restore`, {
       method: 'POST',
+    });
+  },
+
+  addMemo: (eventId: number, content: string) => {
+    return fetchApi<ScheduleMemo>(`/schedules/${eventId}/memos`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  updateMemo: (eventId: number, memoId: number, content: string) => {
+    return fetchApi<ScheduleMemo>(`/schedules/${eventId}/memos/${memoId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  deleteMemo: (eventId: number, memoId: number) => {
+    return fetchApi<void>(`/schedules/${eventId}/memos/${memoId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // 상세보기에서 붙여넣기로 사진을 바로 추가한 직후 호출 — 사진 자체는 이미 photoApi.confirm()으로 저장 완료된
+  // 상태라 여기선 텔레그램 알림만 트리거(응답 데이터 없음)
+  notifyPhotosAdded: (eventId: number, count: number) => {
+    return fetchApi<void>(`/schedules/${eventId}/notify-photos-added`, {
+      method: 'POST',
+      body: JSON.stringify({ count }),
     });
   },
 };

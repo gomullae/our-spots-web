@@ -27,7 +27,6 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
   const [startDate, setStartDate] = useState(event?.startAt.slice(0, 10) ?? defaultDate ?? '');
   const [startTime, setStartTime] = useState(event?.startAt.slice(11, 16) ?? '09:00');
   const [endDate, setEndDate] = useState(event?.endAt.slice(0, 10) ?? defaultDate ?? '');
-  const [memo, setMemo] = useState(event?.memo ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   // 아직 confirm 안 된 새 사진들의 objectKey — 저장 성공 후 이 일정의 id로 confirm됨
@@ -53,7 +52,8 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
         startAt: allDay ? `${startDate}T00:00:00` : `${startDate}T${startTime}:00`,
         endAt: allDay ? `${endDate}T23:59:59` : `${startDate}T${startTime}:00`,
         allDay,
-        memo: memo.trim() || undefined,
+        // 텔레그램 알림에 "사진 N장 추가됨" 한 줄을 넣기 위한 신호일 뿐, DB에 저장되는 값이 아님
+        newPhotoCount: pendingPhotos.length,
       };
       const saved = savedEvent ?? (isEditMode ? await scheduleApi.update(event.id, payload) : await scheduleApi.create(payload));
       setSavedEvent(saved);
@@ -170,16 +170,8 @@ export default function ScheduleForm({ event, defaultDate, onClose, onSaved, onD
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
-        <textarea
-          value={memo}
-          onChange={(e) => setMemo(e.target.value.slice(0, 500))}
-          rows={3}
-          placeholder="메모를 입력해주세요"
-          className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-        />
-      </div>
+      {/* 메모는 여기서 안 다룸 — 등록 직후엔 event.id가 없어 추가할 수 없고, 수정 시엔 상세보기(ScheduleEventDetail)의
+          메모 스레드에서 바로 추가/삭제하는 게 더 자연스러워서 폼에서는 뺌 */}
 
       <PhotoUploadSection
         entityType="SCHEDULE_EVENT"
