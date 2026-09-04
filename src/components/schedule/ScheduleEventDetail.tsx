@@ -31,15 +31,17 @@ interface ScheduleEventDetailProps {
 // 굳이 400 에러를 받아보고 나서야 알게 되는 걸 방지
 const MAX_MEMOS = 10;
 
-// 메모 한 건 — 카카오톡/타임트리처럼 우측 정렬 말풍선 + 우측에 "⋮" 메뉴(수정/삭제).
+// 메모 한 건 — 카카오톡/타임트리처럼 우측 정렬 말풍선 + 우측에 "⋮" 메뉴(수정/복사/삭제).
 // 메뉴 열림 상태를 부모가 memo id별로 관리하지 않도록(hooks-in-loop 문제 회피 목적도 겸함)
 // 각 말풍선이 자기 메뉴 상태를 직접 들고 있는 독립 컴포넌트로 분리.
 // 드롭다운은 document.body에 포탈로 렌더링 — 이 목록이 담긴 모달 본문이 overflow-y-auto라(스크롤
 // 영역 지정 시 overflow-x도 암묵적으로 auto가 돼 넘치는 콘텐츠를 잘라버림) 마지막 메모처럼 스크롤 영역
 // 경계에 가까운 위치에서 메뉴를 absolute로 띄우면 모바일에서 잘려 보이는 문제가 있었음
-function MemoBubble({ memo, onEdit, onDelete }: { memo: ScheduleMemo; onEdit: () => void; onDelete: () => void }) {
+function MemoBubble({ memo, onEdit, onCopy, onDelete }: { memo: ScheduleMemo; onEdit: () => void; onCopy: () => void; onDelete: () => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  // 메뉴 폭이 라벨 길이에 맞춰 늘어나므로(w-fit) 왼쪽 좌표 대신 뷰포트 우측 끝까지의 거리(right)로
+  // 고정 — 버튼의 오른쪽 끝에 메뉴의 오른쪽 끝이 항상 맞춰짐(폭이 얼마든 상관없이)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -66,7 +68,7 @@ function MemoBubble({ memo, onEdit, onDelete }: { memo: ScheduleMemo; onEdit: ()
   const toggleMenu = () => {
     if (!isMenuOpen) {
       const rect = buttonRef.current?.getBoundingClientRect();
-      if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.right - 80 });
+      if (rect) setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
     }
     setIsMenuOpen((v) => !v);
   };
@@ -87,18 +89,24 @@ function MemoBubble({ memo, onEdit, onDelete }: { memo: ScheduleMemo; onEdit: ()
       {isMenuOpen && menuPos && createPortal(
         <div
           ref={menuRef}
-          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-          className="w-20 bg-white border rounded-lg shadow-lg py-1 z-[100]"
+          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right }}
+          className="w-fit min-w-[72px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-[100]"
         >
           <button
             onClick={() => { setIsMenuOpen(false); onEdit(); }}
-            className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors"
+            className="block w-full text-left whitespace-nowrap px-3.5 py-1.5 text-xs hover:bg-gray-50 transition-colors border-b border-gray-100"
           >
             수정
           </button>
           <button
+            onClick={() => { setIsMenuOpen(false); onCopy(); }}
+            className="block w-full text-left whitespace-nowrap px-3.5 py-1.5 text-xs hover:bg-gray-50 transition-colors border-b border-gray-100"
+          >
+            복사
+          </button>
+          <button
             onClick={() => { setIsMenuOpen(false); onDelete(); }}
-            className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+            className="block w-full text-left whitespace-nowrap px-3.5 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
           >
             삭제
           </button>
@@ -234,6 +242,15 @@ export default function ScheduleEventDetail({ event, onClose, onEdit, onDeleted,
     setMemoInput('');
   };
 
+  const handleCopyMemo = async (memo: ScheduleMemo) => {
+    try {
+      await navigator.clipboard.writeText(memo.content);
+      showToast('메모를 복사했습니다', 'success');
+    } catch {
+      showToast('복사에 실패했습니다', 'error');
+    }
+  };
+
   const handleDeleteMemo = (memo: ScheduleMemo) => {
     showConfirm('이 메모를 삭제하시겠습니까?', async () => {
       try {
@@ -342,6 +359,7 @@ export default function ScheduleEventDetail({ event, onClose, onEdit, onDeleted,
                     key={memo.id}
                     memo={memo}
                     onEdit={() => handleStartEditMemo(memo)}
+                    onCopy={() => handleCopyMemo(memo)}
                     onDelete={() => handleDeleteMemo(memo)}
                   />
                 ))}
