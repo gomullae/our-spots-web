@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import ExpenseForm from '@/components/expense/ExpenseForm';
 import { RestoreIcon } from '@/components/icons';
 import { Toast } from '@/hooks/useToast';
@@ -8,8 +8,7 @@ import { expenseApi } from '@/services/api';
 import { ExpenseCategory, ExpenseRecord, ExpenseRecordPayload, PaymentMethod } from '@/types';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_BADGE_COLORS, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
 import { formatAmount, formatDateTimeCompact, sumAmount } from '@/utils/expenseFormat';
-import { currentYearMonth, formatMonthLabel, shiftMonth } from '@/utils/expenseDate';
-import { toDateString } from '@/utils/weightDate';
+import { parseDateString, toDateString, todayString } from '@/utils/weightDate';
 
 interface ExpenseEntryTabProps {
   showToast: (message: string, type?: Toast['type']) => void;
@@ -32,10 +31,20 @@ function wasEdited(record: ExpenseRecord): boolean {
   return updated !== created;
 }
 
+// 기본 조회기간 = 오늘로부터 한 달 전 (달력상의 그 달이 아니라 날짜 기준 롤링 윈도우)
+function defaultStart(): string {
+  const date = parseDateString(todayString());
+  date.setMonth(date.getMonth() - 1);
+  return toDateString(date);
+}
+
 export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntryTabProps) {
-  const [yearMonth, setYearMonth] = useState(currentYearMonth);
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(todayString);
+  const [keyword, setKeyword] = useState('');
   const [records, setRecords] = useState<ExpenseRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ExpenseRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -45,39 +54,38 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
   const [sortBy, setSortBy] = useState<SortBy>('expenseDate');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
+  // 조회기간/검색어는 값이 바뀔 때마다 자동 재조회하지 않고, "조회" 버튼(또는 검색어에서 Enter)을
+  // 눌렀을 때만 서버에 요청 — 통계 탭과 동일한 절제된 패턴
   const fetchRecords = useCallback(() => {
-    const [year, month] = yearMonth.split('-').map(Number);
-    const start = `${yearMonth}-01`;
-    const end = toDateString(new Date(year, month, 0));
     setIsLoading(true);
-    return expenseApi.getByRange(start, end, true)
+    return expenseApi.getByRange(startDate, endDate, true, keyword.trim() || undefined)
       .then((data) => setRecords(data))
       .catch((err) => showToast(err instanceof Error ? err.message : '불러오기에 실패했습니다', 'error'))
       .finally(() => setIsLoading(false));
-  }, [yearMonth, showToast]);
+  }, [startDate, endDate, keyword, showToast]);
 
-  useEffect(() => {
+  const handleSearch = () => {
     setSelectedIds(new Set());
+    setHasSearched(true);
     fetchRecords();
-  }, [fetchRecords]);
+  };
 
+  // 조회기간/검색어가 자유로워지면서 "지금 화면에 보이는 기간에 속하는지"를 프론트에서 재현하기 어려워짐
+  // (키워드 LIKE 매칭까지 클라이언트에서 다시 구현해야 함) — 등록/수정 후에는 그냥 현재 조회 조건으로 다시
+  // 불러오는 쪽이 더 단순하고 정확함(체중/가계 현황에서도 같은 이유로 이미 적용한 패턴)
   const handleCreate = async (data: ExpenseRecordPayload) => {
-    const created = await expenseApi.create(data);
-    if (created.expenseDate.startsWith(yearMonth)) {
-      setRecords((prev) => [...prev, created]);
-    }
+    await expenseApi.create(data);
     showToast('등록했습니다', 'success');
+    setHasSearched(true);
+    await fetchRecords();
   };
 
   const handleUpdate = async (data: ExpenseRecordPayload) => {
     if (!editingRecord) return;
-    const updated = await expenseApi.update(editingRecord.id, data);
-    if (updated.expenseDate.startsWith(yearMonth)) {
-      setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-    } else {
-      setRecords((prev) => prev.filter((r) => r.id !== updated.id));
-    }
+    await expenseApi.update(editingRecord.id, data);
     showToast('수정했습니다', 'success');
+    setHasSearched(true);
+    await fetchRecords();
   };
 
   const filteredRecords = records
@@ -144,21 +152,54 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
 
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setYearMonth((m) => shiftMonth(m, -1))} className="text-gray-400 hover:text-gray-600 px-1 text-lg leading-none">‹</button>
-          <span className="text-sm font-medium">{formatMonthLabel(yearMonth)}</span>
-          <button onClick={() => setYearMonth((m) => shiftMonth(m, 1))} className="text-gray-400 hover:text-gray-600 px-1 text-lg leading-none">›</button>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0">
+        <div className="flex-1 overflow-hidden border rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
+          <input
+            type="date"
+            value={startDate}
+            max={endDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full min-w-0 max-w-full px-2 py-1.5 text-xs focus:outline-none"
+          />
+        </div>
+        <span className="text-gray-400 text-xs shrink-0">~</span>
+        <div className="flex-1 overflow-hidden border rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
+          <input
+            type="date"
+            value={endDate}
+            min={startDate}
+            max={todayString()}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full min-w-0 max-w-full px-2 py-1.5 text-xs focus:outline-none"
+          />
         </div>
         <button
-          onClick={() => setShowAddForm(true)}
-          className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+          onClick={handleSearch}
+          disabled={isLoading}
+          className="shrink-0 w-14 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
         >
-          + 추가
+          조회
+        </button>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="shrink-0 w-14 py-[calc(0.375rem-1px)] rounded-lg border border-gray-900 text-gray-900 text-xs font-medium hover:bg-gray-100 transition-colors"
+        >
+          추가
         </button>
       </div>
 
-      {!isLoading && records.length > 0 && (
+      <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0">
+        <input
+          type="text"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+          placeholder="사용처 검색"
+          className="w-full px-2.5 py-1.5 border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {!isLoading && hasSearched && records.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0 flex-wrap">
           <select
             value={sortBy}
@@ -199,7 +240,7 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
         </div>
       )}
 
-      {!isLoading && records.length > 0 && (
+      {!isLoading && hasSearched && records.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0 bg-gray-50">
           <label className="flex items-center gap-1.5 text-xs text-gray-500">
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="w-3.5 h-3.5" />
@@ -220,10 +261,12 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
       )}
 
       <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
+        {!hasSearched ? (
+          <p className="text-sm text-gray-400 text-center py-10">조건을 선택하고 조회 버튼을 눌러주세요</p>
+        ) : isLoading ? (
           <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>
         ) : records.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-10">이 달에 등록된 내역이 없습니다</p>
+          <p className="text-sm text-gray-400 text-center py-10">조회 결과가 없습니다</p>
         ) : filteredRecords.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-10">조건에 맞는 내역이 없습니다</p>
         ) : (
@@ -282,7 +325,7 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
         )}
       </div>
 
-      {!isLoading && activeRecords.length > 0 && (
+      {!isLoading && hasSearched && activeRecords.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2.5 border-t shrink-0 bg-gray-50">
           <span className="text-xs text-gray-400">총 {activeRecords.length}건</span>
           <span className="text-sm font-bold">{formatAmount(total)}</span>

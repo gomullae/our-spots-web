@@ -240,8 +240,9 @@ export const weightApi = {
 };
 
 export const expenseApi = {
-  getByRange: (startDate: string, endDate: string, includeDeleted?: boolean) => {
+  getByRange: (startDate: string, endDate: string, includeDeleted?: boolean, keyword?: string) => {
     const query = new URLSearchParams({ startDate, endDate, includeDeleted: String(includeDeleted ?? false) });
+    if (keyword) query.set('keyword', keyword);
     return fetchApi<ExpenseRecord[]>(`/expenses?${query.toString()}`);
   },
 
