@@ -44,6 +44,16 @@ const DETAIL_TABS: { key: DetailTab; label: string }[] = [
   { key: 'method', label: '결제수단별' },
 ];
 
+// 정기지출(식비+생활비) 기준으로만 볼지, 비정기지출까지 합쳐서 볼지 — 기본값은 REGULAR.
+// 한 줄에 "정기 X원 (비정기 포함 Y원)"처럼 같이 보여줬더니 오히려 헷갈린다는 피드백으로,
+// 아예 화면 전체가 한 기준(총 지출/카테고리 카드/주 총액/날짜 칸/상세 내역)만 보여주는 방식으로 변경
+type ViewMode = 'REGULAR' | 'ALL';
+
+const VIEW_MODE_TABS: { key: ViewMode; label: string }[] = [
+  { key: 'REGULAR', label: '정기지출' },
+  { key: 'ALL', label: '비정기지출 포함' },
+];
+
 function inRange(record: ExpenseRecord, week: WeekRange): boolean {
   return record.expenseDate >= week.start && record.expenseDate <= week.end;
 }
@@ -70,6 +80,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const [isLoading, setIsLoading] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<ExpenseCategory | null>(null);
   const [categoryPage, setCategoryPage] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>('REGULAR');
   const [selectedWeek, setSelectedWeek] = useState<WeekRange | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
@@ -137,11 +148,23 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
     fetchRecords();
   }, [fetchRecords]);
 
-  const monthRecords = records.filter((r) => r.expenseDate.startsWith(yearMonth));
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    // 정기지출 모드로 바꾸면 비정기지출 카드 자체가 안 보이게 되므로, 그 카드가 펼쳐진 채로 남아있으면 어색함
+    setExpandedCategory(null);
+    setCategoryPage(0);
+  };
+
+  // 총 지출/카테고리 카드/주 총액/날짜 칸/상세 내역 전부 이 파생 배열 하나만 보고 그림 —
+  // "정기지출"이면 비정기지출 건은 통째로 안 보이는 것처럼, "비정기지출 포함"이면 전부 보이는 것처럼
+  const visibleRecords = viewMode === 'REGULAR' ? records.filter((r) => r.category !== 'IRREGULAR') : records;
+  const visibleCategories = viewMode === 'REGULAR' ? EXPENSE_CATEGORIES.filter((c) => c !== 'IRREGULAR') : EXPENSE_CATEGORIES;
+
+  const monthRecords = visibleRecords.filter((r) => r.expenseDate.startsWith(yearMonth));
   const monthTotal = sumAmount(monthRecords);
 
   if (selectedWeek) {
-    const weekRecords = records.filter((r) => inRange(r, selectedWeek)).sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
+    const weekRecords = visibleRecords.filter((r) => inRange(r, selectedWeek)).sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
 
     const handleSendSummary = async () => {
       const budget = Number(budgetInput);
@@ -214,7 +237,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
           </div>
         ) : (
           <div className="p-4 space-y-5">
-            {EXPENSE_CATEGORIES.map((category) => {
+            {visibleCategories.map((category) => {
               const items = weekRecords.filter((r) => r.category === category);
               return (
                 <section key={category}>
@@ -269,17 +292,34 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
         <button onClick={() => goToMonth(shiftMonth(yearMonth, 1))} className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1">›</button>
       </div>
 
+      {/* 정기지출만 볼지 비정기지출까지 포함해서 볼지 — 아래 총 지출/카테고리 카드/주 총액/날짜 칸/상세 전부 이 선택 기준으로 표시됨 */}
+      <div className="flex mx-4 my-2 border rounded-lg overflow-hidden shrink-0">
+        {VIEW_MODE_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleViewModeChange(tab.key)}
+            className={`flex-1 py-1.5 text-xs font-semibold transition-colors ${
+              viewMode === tab.key ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>
       ) : (
         <>
           <div className="px-4 py-3 border-b bg-gray-50">
             <div className="flex items-baseline justify-between">
-              <span className="text-xs text-gray-500">{formatMonthShortLabel(yearMonth)} 총 지출</span>
+              <span className="text-xs text-gray-500">
+                {formatMonthShortLabel(yearMonth)} {viewMode === 'REGULAR' ? '정기 지출' : '총 지출'}
+              </span>
               <span className="text-lg font-bold">{formatAmount(monthTotal)}</span>
             </div>
             <div className="flex gap-1.5 mt-2">
-              {EXPENSE_CATEGORIES.map((category) => {
+              {visibleCategories.map((category) => {
                 const total = sumAmount(monthRecords.filter((r) => r.category === category));
                 const isExpanded = expandedCategory === category;
                 return (
@@ -333,14 +373,9 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
 
             <div className="divide-y divide-gray-100">
               {weeks.map((week) => {
-              const weekRecords = records.filter((r) => inRange(r, week));
-              // 비정기지출은 예상 못 한 지출이라 예산 감(정기 지출) 판단에 안 섞이게 별도 집계 —
-              // 주간 정산 텔레그램(정기/비정기 구분)과 동일한 원칙, 여기서도 총액 하나로 뭉뚱그리면
-              // 비정기지출이 낀 주인지 구분이 안 됨
-              const weekRegularTotal = sumAmount(weekRecords.filter((r) => r.category !== 'IRREGULAR'));
+              const weekRecords = visibleRecords.filter((r) => inRange(r, week));
               const weekTotal = sumAmount(weekRecords);
-              const hasIrregular = weekTotal !== weekRegularTotal;
-              const days = weekDays(week, yearMonth, records);
+              const days = weekDays(week, yearMonth, visibleRecords);
               return (
                 <div key={week.start} className="px-3 py-2">
                   {/* 주 총액 = 주간 상세로 이동하는 버튼 — 화살표 아이콘으로 눌러야 하는 영역임을 표시(날짜 칸과는 별개 클릭 영역) */}
@@ -348,16 +383,9 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
                     onClick={() => setSelectedWeek(week)}
                     className="w-full flex items-center justify-end gap-1 px-1 py-1 mb-1 rounded hover:bg-gray-100 transition-colors"
                   >
-                    {weekTotal > 0 ? (
-                      <span className="text-xs">
-                        <span className="font-bold text-gray-900">정기 {formatAmount(weekRegularTotal)}</span>
-                        <span className="text-[10px] text-gray-400">
-                          {hasIrregular ? ` (비정기 포함 ${formatAmount(weekTotal)})` : ' (비정기지출 없음)'}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-300">{formatAmount(weekTotal)}</span>
-                    )}
+                    <span className={`text-xs ${weekTotal > 0 ? 'font-bold text-gray-900' : 'text-gray-300'}`}>
+                      {formatAmount(weekTotal)}
+                    </span>
                     <ArrowRightIcon className="w-3 h-3 text-gray-400" />
                   </button>
                   <div className="grid grid-cols-7">
@@ -386,7 +414,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
       {selectedDay && (
         <DayExpensesSheet
           date={selectedDay}
-          records={records.filter((r) => r.expenseDate === selectedDay)}
+          records={visibleRecords.filter((r) => r.expenseDate === selectedDay)}
           onClose={() => setSelectedDay(null)}
         />
       )}
