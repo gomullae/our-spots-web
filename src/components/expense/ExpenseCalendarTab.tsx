@@ -334,7 +334,12 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
             <div className="divide-y divide-gray-100">
               {weeks.map((week) => {
               const weekRecords = records.filter((r) => inRange(r, week));
+              // 비정기지출은 예상 못 한 지출이라 예산 감(정기 지출) 판단에 안 섞이게 별도 집계 —
+              // 주간 정산 텔레그램(정기/비정기 구분)과 동일한 원칙, 여기서도 총액 하나로 뭉뚱그리면
+              // 비정기지출이 낀 주인지 구분이 안 됨
+              const weekRegularTotal = sumAmount(weekRecords.filter((r) => r.category !== 'IRREGULAR'));
               const weekTotal = sumAmount(weekRecords);
+              const hasIrregular = weekTotal !== weekRegularTotal;
               const days = weekDays(week, yearMonth, records);
               return (
                 <div key={week.start} className="px-3 py-2">
@@ -343,9 +348,16 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
                     onClick={() => setSelectedWeek(week)}
                     className="w-full flex items-center justify-end gap-1 px-1 py-1 mb-1 rounded hover:bg-gray-100 transition-colors"
                   >
-                    <span className={`text-xs ${weekTotal > 0 ? 'font-bold text-gray-900' : 'text-gray-300'}`}>
-                      {formatAmount(weekTotal)}
-                    </span>
+                    {weekTotal > 0 ? (
+                      <span className="text-xs">
+                        <span className="font-bold text-gray-900">정기 {formatAmount(weekRegularTotal)}</span>
+                        <span className="text-[10px] text-gray-400">
+                          {hasIrregular ? ` (비정기 포함 ${formatAmount(weekTotal)})` : ' (비정기지출 없음)'}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-300">{formatAmount(weekTotal)}</span>
+                    )}
                     <ArrowRightIcon className="w-3 h-3 text-gray-400" />
                   </button>
                   <div className="grid grid-cols-7">
