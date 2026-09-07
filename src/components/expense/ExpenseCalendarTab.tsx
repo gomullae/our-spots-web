@@ -23,6 +23,9 @@ interface ExpenseCalendarTabProps {
 
 const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 const CATEGORY_PAGE_SIZE = 10;
+// 주간 정산 텔레그램 전송(정산 보내기)의 기본 예산과 동일한 값 — 달력 그리드의 주별 초과/절약
+// 배지도 같은 기준으로 비교해야 "정산 보내기 화면과 다른 숫자"로 헷갈리지 않음
+const DEFAULT_WEEKLY_BUDGET = 420000;
 
 // 월요일 시작 기준 5번째(토)는 파란색, 6번째(일)는 빨간색
 function weekdayColor(index: number, weak = false): string {
@@ -84,7 +87,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const [selectedWeek, setSelectedWeek] = useState<WeekRange | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
-  const [budgetInput, setBudgetInput] = useState('420000');
+  const [budgetInput, setBudgetInput] = useState(String(DEFAULT_WEEKLY_BUDGET));
   const [isSending, setIsSending] = useState(false);
   const beginRequest = useLatestRequestGuard();
 
@@ -376,16 +379,27 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
               const weekRecords = visibleRecords.filter((r) => inRange(r, week));
               const weekTotal = sumAmount(weekRecords);
               const days = weekDays(week, yearMonth, visibleRecords);
+              // 비정기지출은 예산 판단 대상이 아니므로(주간 정산 텔레그램과 동일 원칙) 정기지출 모드 +
+              // 지출이 있는 주에서만 배지 표시 — 예산 절약이면 초록, 초과면 빨강
+              const budgetDiff = DEFAULT_WEEKLY_BUDGET - weekTotal;
+              const showBudgetBadge = viewMode === 'REGULAR' && weekTotal > 0;
               return (
                 <div key={week.start} className="px-3 py-2">
                   {/* 주 총액 = 주간 상세로 이동하는 버튼 — 화살표 아이콘으로 눌러야 하는 영역임을 표시(날짜 칸과는 별개 클릭 영역) */}
                   <button
                     onClick={() => setSelectedWeek(week)}
-                    className="w-full flex items-center justify-end gap-1 px-1 py-1 mb-1 rounded hover:bg-gray-100 transition-colors"
+                    className="w-full flex items-center justify-end gap-1.5 px-1 py-1 mb-1 rounded hover:bg-gray-100 transition-colors"
                   >
                     <span className={`text-xs ${weekTotal > 0 ? 'font-bold text-gray-900' : 'text-gray-300'}`}>
                       {formatAmount(weekTotal)}
                     </span>
+                    {showBudgetBadge && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                        budgetDiff >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                      }`}>
+                        {budgetDiff >= 0 ? `${formatAmount(budgetDiff)} 절약` : `+${formatAmount(-budgetDiff)} 초과`}
+                      </span>
+                    )}
                     <ArrowRightIcon className="w-3 h-3 text-gray-400" />
                   </button>
                   <div className="grid grid-cols-7">
