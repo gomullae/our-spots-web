@@ -46,6 +46,12 @@ export const TYPE_CONFIG: Record<PlaceType, {
     color: 'bg-teal-100 text-teal-700',
     activeColor: 'bg-cyan-600 text-white',
   },
+  OTHER: {
+    label: '기타',
+    emoji: '📌',
+    color: 'bg-slate-100 text-slate-700',
+    activeColor: 'bg-slate-600 text-white',
+  },
 };
 
 // ============================================================================
@@ -82,6 +88,12 @@ export const GRADE_CONFIG: Record<PlaceType, Record<1 | 2 | 3, { label: string; 
     1: { label: '⭐ 꼭 가볼 곳', color: 'bg-teal-600 text-white' },
     2: { label: '👍 가볼만한 곳', color: 'bg-teal-400 text-white' },
     3: { label: '🙂 무난한', color: 'bg-teal-200 text-teal-800' },
+  },
+  // 기타는 취향이 아니라 "다시 찾아갈 만한가"가 기준이라 등급 라벨도 신뢰도 표현으로 씀
+  OTHER: {
+    1: { label: '⭐ 확실한 곳', color: 'bg-slate-700 text-white' },
+    2: { label: '👍 괜찮음', color: 'bg-slate-500 text-white' },
+    3: { label: '🙂 일단 저장', color: 'bg-slate-200 text-slate-800' },
   },
 };
 
@@ -120,6 +132,11 @@ export const MARKER_COLORS: Record<PlaceType, Record<1 | 2 | 3, string>> = {
     2: '#2DD4BF', // 터쿼이즈 (Turquoise)
     3: '#99F6E4', // 민트 (Mint)
   },
+  OTHER: {
+    1: '#475569', // 진회색 (Slate)
+    2: '#94A3B8', // 회색 (Gray)
+    3: '#CBD5E1', // 연회색 (Light Slate)
+  },
 };
 
 export const DEFAULT_MARKER_COLOR = '#9CA3AF';
@@ -129,7 +146,7 @@ export const DEFAULT_MARKER_COLOR = '#9CA3AF';
 // ============================================================================
 
 export const PUBLIC_TYPES: PlaceType[] = ['RESTAURANT', 'KIDS_PLAYGROUND', 'RELAXATION'];
-export const PERSONAL_TYPES: PlaceType[] = ['MY_FOOTPRINT', 'RECOMMENDED_RESTAURANT', 'RECOMMENDED_SPOT'];
+export const PERSONAL_TYPES: PlaceType[] = ['MY_FOOTPRINT', 'RECOMMENDED_RESTAURANT', 'RECOMMENDED_SPOT', 'OTHER'];
 
 export const PUBLIC_FILTERS: { type: PlaceType | null; label: string; emoji: string }[] = [
   { type: null, label: '전체', emoji: '📍' },
@@ -142,6 +159,7 @@ export const PERSONAL_FILTERS: { type: PlaceType; label: string; emoji: string }
   { type: 'MY_FOOTPRINT', label: '나의 발자취', emoji: '👣' },
   { type: 'RECOMMENDED_RESTAURANT', label: '추천 맛집', emoji: '🍴' },
   { type: 'RECOMMENDED_SPOT', label: '추천 명소', emoji: '🏛️' },
+  { type: 'OTHER', label: '기타', emoji: '📌' },
 ];
 
 export const GRADE_LABELS = [

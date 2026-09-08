@@ -101,13 +101,13 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">유형</label>
         <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {PUBLIC_TYPES.map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
-                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                   type === t ? TYPE_CONFIG[t].activeColor : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -116,13 +116,13 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
             ))}
           </div>
           {isAuthenticated && (
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {PERSONAL_TYPES.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setType(t)}
-                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                  className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                     type === t ? TYPE_CONFIG[t].activeColor : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >

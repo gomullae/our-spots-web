@@ -17,8 +17,12 @@ export function getIconPath(placeType: string): string {
       return `<path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/>`;
     case 'RECOMMENDED_RESTAURANT':
       return `<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>`;
-    default:
+    // 원래 default가 담당하던 깃발 아이콘 — 기타(OTHER) 추가로 default를 넘겨주면서 명시 case로 옮김
+    case 'RECOMMENDED_SPOT':
       return `<path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>`;
+    // 기타(OTHER) 및 알 수 없는 타입 폴백 — 북마크(저장해둔 곳)
+    default:
+      return `<path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>`;
   }
 }
 
