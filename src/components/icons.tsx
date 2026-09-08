@@ -2,10 +2,36 @@ interface IconProps {
   className?: string;
 }
 
+interface PlaceLabelIconProps extends IconProps {
+  off?: boolean;
+}
+
+// "장소명 표기" 토글용. 지도 라벨을 뜻하는 표준 아이콘이 없어서 글자 자체를 아이콘으로 씀 —
+// 태그 모양은 가격표로, Aa는 글자 크기 조절로 오해될 소지가 있었음.
+// off일 때 대각선을 그어 꺼진 상태를 표시(다른 아이콘들과 동일하게 currentColor를 따름)
+export function PlaceLabelIcon({ className = 'w-5 h-5', off = false }: PlaceLabelIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <text x="12" y="17.5" textAnchor="middle" fontSize="17" fontWeight="700" fill="currentColor">가</text>
+      {off && <line x1="4.5" y1="19.5" x2="19.5" y2="4.5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />}
+    </svg>
+  );
+}
+
 export function LocationPinIcon({ className = 'w-5 h-5' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    </svg>
+  );
+}
+
+// 우하단 도구 묶음 펼치기/접기용. 펼쳤을 때 rotate-180으로 뒤집어 상태까지 표현하므로
+// 별도 '펼침' 표시가 필요 없음(점 세 개 아이콘은 이게 안 됨)
+export function ChevronUpIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
     </svg>
   );
 }

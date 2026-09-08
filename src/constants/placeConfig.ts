@@ -187,12 +187,19 @@ export const PANEL_DIMENSIONS = {
 } as const;
 
 export const MAP_ZOOM = {
-  DEFAULT: 3,
+  // 앱 첫 진입 시 — 검단 + 김포 일부까지 들어오는 정도(레벨은 1이 최대 확대, 14가 최대 축소이고
+  // 1단계마다 대략 2배씩 넓어짐). 5 → 7 → 8로 두 번 넓힌 값(2026-09-09)
+  START: 8,
+  // ?place={id} 공유 링크로 특정 장소를 열 때 — 그 장소를 가까이 봐야 하므로 START보다 확대.
+  // 원래 이 값 하나(DEFAULT)를 첫 진입과 공유 링크가 같이 썼는데, 첫 진입만 넓히려다 공유 링크까지
+  // 멀어지는 문제가 있어서 분리함(2026-09-09)
+  PLACE: 3,
   ADDR: 6,
   ON_MOVE: 6,
 } as const;
 
-export const DEFAULT_CENTER = { lat: 37.5720, lng: 126.9752 } as const;
+// 지도 기본 중심 — 신검단중앙역(인천 서구 원당동, 인천 1호선)
+export const DEFAULT_CENTER = { lat: 37.6025, lng: 126.6986 } as const;
 
 // 지도 프로그래밍 이동 후 안정화 대기 시간 (ms)
 export const MAP_SETTLE_MS = 500;
@@ -212,6 +219,11 @@ export const getGradeLabel = (type: PlaceType, grade?: number) => {
   const typeConfig = TYPE_CONFIG[type];
   return { label: typeConfig?.label || '장소', color: 'bg-gray-100 text-gray-800' };
 };
+
+// 등급과 무관하게 "타입"만 나타내야 하는 곳(라벨 테두리 등)에서 쓰는 색 — 항상 1등급(가장 진한) 색.
+// 3등급 색은 연해서 1.5px 선으로 그리면 흰 배경과 거의 구분이 안 됨. 등급 정보는 마커 점이 이미 표현함
+export const getTypeAccentColor = (type: PlaceType): string =>
+  MARKER_COLORS[type]?.[1] ?? DEFAULT_MARKER_COLOR;
 
 export const getMarkerColor = (type: PlaceType, grade?: number): string => {
   const colors = MARKER_COLORS[type];

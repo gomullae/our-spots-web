@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHand
 import { Marker, SearchResultPlace } from '@/types';
 import { MAP_ZOOM, DEFAULT_CENTER, MAP_SETTLE_MS } from '@/constants/placeConfig';
 import { useKakaoSDK } from '@/hooks/useKakaoSDK';
-import { groupMarkersByCoord, createSingleMarkerHTML, createGroupMarkerHTML, createSearchMarkerHTML } from './markerUtils';
+import { groupMarkersByCoord, createSingleMarkerHTML, createGroupMarkerHTML, createSearchMarkerHTML, createMarkerLabelElement, resolveLabelPlacements, dotRect, toLabelRect, LABEL_BASE_TRANSFORM } from './markerUtils';
 
 interface KakaoMapProps {
   markers: Marker[];
@@ -21,6 +21,8 @@ interface KakaoMapProps {
   onSearchMarkerClick?: (result: SearchResultPlace) => void;
   onMapMoved?: () => void;
   currentLocation?: { lat: number; lng: number } | null;
+  // 마커 아래 장소명 라벨 표시 여부 — false면 충돌 계산 없이 전부 숨김
+  showLabels?: boolean;
 }
 
 export interface KakaoMapHandle {
@@ -35,7 +37,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   onMarkerClick,
   onMapClick,
   center = DEFAULT_CENTER,
-  zoom = MAP_ZOOM.DEFAULT,
+  zoom = MAP_ZOOM.START,
   moveTo,
   previewPosition,
   highlightPosition,
@@ -43,6 +45,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   onSearchMarkerClick,
   onMapMoved,
   currentLocation,
+  showLabels = true,
 }, ref) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<KakaoMapInstance | null>(null);
@@ -52,6 +55,12 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
   const highlightPinRef = useRef<KakaoCustomOverlay | null>(null);
   const currentLocationOverlayRef = useRef<KakaoCustomOverlay | null>(null);
   const markerClickedRef = useRef(false);
+  // 마커별 점 영역(box)과 이름 라벨(label) — 라벨 표시 여부를 다시 계산할 때 쓰는 DOM 참조.
+  // 그룹 마커는 label이 null이지만 점 영역은 다른 라벨을 막아야 해서 항목 자체는 들어감
+  const labelEntriesRef = useRef<Array<{ box: HTMLElement; label: HTMLElement | null; grade?: number }>>([]);
+  // showLabels를 ref로 읽는 이유: layoutMarkerLabels의 deps에 넣으면 함수 identity가 바뀌고,
+  // 그러면 이 함수를 deps로 가진 마커 렌더 effect가 돌아 오버레이를 통째로 다시 만들게 됨
+  const showLabelsRef = useRef(showLabels);
   const programmaticMoveRef = useRef(false);
   const onMapMovedRef = useRef(onMapMoved);
   // 렌더 중 ref를 직접 mutate하지 않고 effect 안에서 갱신(deps 없이 매 렌더 후 실행)
@@ -488,6 +497,92 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
     };
   }, [mapReady]);
 
+  // 마커 이름 라벨 표시 여부 재계산.
+  // 우선순위가 높은 것부터 자리를 잡고, 이미 놓인 것과 겹치는 라벨은 버려서 점만 남김.
+  // 줌 레벨로 한 번 더 거르지 않는 이유: 겹치는지 여부가 진짜 기준이고 줌은 그 대리 지표일 뿐이라,
+  // 줌아웃 상태여도 마커가 널널하면 라벨을 보여주는 게 맞음(둘 다 두면 같은 일을 더 거칠게 반복하는 셈)
+  // 측정(읽기)을 먼저 몰아서 하고 visibility 변경(쓰기)을 나중에 해 리플로우를 1회로 억제
+  const layoutMarkerLabels = useCallback(() => {
+    const container = mapRef.current;
+    const entries = labelEntriesRef.current;
+    if (!container || entries.length === 0) return;
+
+    if (!showLabelsRef.current) {
+      entries.forEach((entry) => {
+        if (entry.label) entry.label.style.visibility = 'hidden';
+      });
+      return;
+    }
+
+    // 측정 전에 지난번 배치로 옮겨둔 자리를 기본 자리로 되돌림 — 안 그러면 옮겨진 위치를 재서
+    // 이동량이 계속 누적됨. 쓰기를 읽기보다 앞에 몰아뒀으므로 강제 리플로우는 여전히 1회
+    entries.forEach((entry) => {
+      if (entry.label) entry.label.style.transform = LABEL_BASE_TRANSFORM;
+    });
+
+    const view = container.getBoundingClientRect();
+    const centerX = view.left + view.width / 2;
+    const centerY = view.top + view.height / 2;
+
+    // --- 읽기 단계 --- (라벨은 visibility:hidden이라도 레이아웃을 차지해서 크기 측정이 정확함)
+    const measured = entries.map((entry, index) => ({
+      index,
+      grade: entry.grade,
+      dot: dotRect(entry.box.getBoundingClientRect()),
+      labelBox: entry.label ? toLabelRect(entry.label.getBoundingClientRect()) : null,
+    }));
+
+    // 화면 밖 마커는 계산에서 제외 — 오버레이는 뷰포트 밖에도 전부 생성되기 때문
+    const onScreen = measured.filter(
+      (m) => m.dot.right > view.left && m.dot.left < view.right && m.dot.bottom > view.top && m.dot.top < view.bottom,
+    );
+
+    const candidates = onScreen
+      .filter((m) => m.labelBox !== null)
+      .map((m) => ({
+        index: m.index,
+        rect: m.labelBox!,
+        // 등급이 높은(숫자가 작은) 장소가 먼저 자리를 잡고, 같으면 화면 중앙에 가까운 쪽이 우선
+        priority:
+          (m.grade ?? 9) * 1_000_000 +
+          Math.hypot((m.dot.left + m.dot.right) / 2 - centerX, (m.dot.top + m.dot.bottom) / 2 - centerY),
+      }));
+
+    const placements = resolveLabelPlacements(candidates, onScreen.map((m) => m.dot));
+
+    // --- 쓰기 단계 --- (placements에 없으면 네 자리 모두 막힌 것이라 숨김)
+    entries.forEach((entry, index) => {
+      if (!entry.label) return;
+      const offset = placements.get(index);
+      if (!offset) {
+        entry.label.style.visibility = 'hidden';
+        return;
+      }
+      entry.label.style.transform = `${LABEL_BASE_TRANSFORM} translate(${offset.dx}px, ${offset.dy}px)`;
+      entry.label.style.visibility = 'visible';
+    });
+  }, []);
+
+  // 장소명 표기 토글 반영 — ref를 갱신한 뒤 즉시 다시 계산
+  useEffect(() => {
+    showLabelsRef.current = showLabels;
+    layoutMarkerLabels();
+  }, [showLabels, layoutMarkerLabels]);
+
+  // 라벨 재계산은 지도가 멈춘 시점(idle)에만 — 드래그 중 매 프레임 계산하지 않기 위함.
+  // 위의 dragend/zoom_changed 핸들러는 "현 지도에서 재검색" 버튼용이라 목적이 달라 리스너를 따로 둠
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+
+    const mapInstance = mapInstanceRef.current;
+    const handleIdle = () => layoutMarkerLabels();
+    window.kakao.maps.event.addListener(mapInstance, 'idle', handleIdle);
+
+    return () => {
+      window.kakao.maps.event.removeListener(mapInstance, 'idle', handleIdle);
+    };
+  }, [mapReady, layoutMarkerLabels]);
+
   // Render registered markers
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !window.kakao?.maps) return;
@@ -495,6 +590,7 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
     // Clear existing markers
     markerInstancesRef.current.forEach((marker) => marker.setMap(null));
     markerInstancesRef.current = [];
+    labelEntriesRef.current = [];
 
     const groupedMarkers = groupMarkersByCoord(markers);
 
@@ -507,6 +603,16 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
       content.innerHTML = isGroup
         ? createGroupMarkerHTML(markersAtLocation.length)
         : createSingleMarkerHTML(firstMarker, isAuthenticated);
+
+      // 44x44 마커 박스 안에 라벨을 절대 위치로 띄움 — 박스의 레이아웃 크기가 안 커지므로 점 위치와
+      // 아래 getBoundingClientRect() 기반 상세 패널 위치가 그대로 유지됨.
+      // 그룹 마커는 2곳 이상이라 이름 하나로 대표할 수 없어 라벨을 붙이지 않음(숫자 배지로 이미 구분)
+      const box = content.firstElementChild as HTMLElement | null;
+      if (box) {
+        const label = isGroup ? null : createMarkerLabelElement(firstMarker);
+        if (label) box.appendChild(label);
+        labelEntriesRef.current.push({ box, label, grade: firstMarker.grade });
+      }
 
       content.style.cursor = 'pointer';
       content.onclick = (e) => {
@@ -532,7 +638,11 @@ const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap({
       customOverlay.setMap(mapInstanceRef.current);
       markerInstancesRef.current.push(customOverlay);
     });
-  }, [mapReady, markers, isAuthenticated, onMarkerClick]);
+
+    // 오버레이가 DOM에 붙고 레이아웃이 잡힌 뒤에 측정해야 해서 다음 프레임에 실행
+    const raf = requestAnimationFrame(() => layoutMarkerLabels());
+    return () => cancelAnimationFrame(raf);
+  }, [mapReady, markers, isAuthenticated, onMarkerClick, layoutMarkerLabels]);
 
   // Render search result markers (A, B, C...)
   useEffect(() => {

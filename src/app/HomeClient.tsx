@@ -18,7 +18,7 @@ import FeedbackModal from '@/components/FeedbackModal';
 import SearchResultsPanel from '@/components/SearchResultsPanel';
 import ToastContainer from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
-import { LocationPinIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, SettingsIcon } from '@/components/icons';
+import { LocationPinIcon, LockIcon, UnlockIcon, CurrentLocationIcon, MegaphoneIcon, ChatBubbleIcon, SettingsIcon, PlaceLabelIcon, ChevronUpIcon } from '@/components/icons';
 import { mapApi, placeApi } from '@/services/api';
 import { Marker } from '@/types';
 import { useMarkerFilter } from '@/hooks/useMarkerFilter';
@@ -26,8 +26,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePlaceActions } from '@/hooks/usePlaceActions';
 import { useMapSearch } from '@/hooks/useMapSearch';
 import { useKakaoSDK } from '@/hooks/useKakaoSDK';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import { useToast } from '@/hooks/useToast';
 import { DEFAULT_CENTER, MAP_ZOOM, MAP_SETTLE_MS, GEOCODE_TIMEOUT_MS } from '@/constants/placeConfig';
+
+// 장소명 라벨 켬/끔 상태 저장 키 — 기기별 표시 취향이라 서버가 아니라 localStorage에 둠
+const PLACE_LABELS_KEY = 'place-labels-v1';
 
 function Home() {
   const router = useRouter();
@@ -96,6 +100,30 @@ function Home() {
     const pos = mapRef.current?.coordToScreenPosition(place.previewPlace.lat, place.previewPlace.lng) ?? null;
     setPreviewScreenPosition(pos);
   }, [place.previewPlace]);
+
+  // 장소명 라벨 표시 여부. 기본 켜짐으로 시작하고 마운트 후 저장값을 반영 —
+  // 초기값을 localStorage에서 바로 읽으면 서버 렌더 결과와 달라져 하이드레이션 불일치가 남.
+  // 껐던 사용자에겐 라벨이 한 순간 보였다 사라지지만, 그 편이 경고를 남기는 것보다 안전함
+  const [showLabels, setShowLabels] = useState(true);
+  useEffect(() => {
+    if (localStorage.getItem(PLACE_LABELS_KEY) === '0') setShowLabels(false);
+  }, []);
+
+  const toggleLabels = useCallback(() => {
+    setShowLabels((prev) => {
+      const next = !prev;
+      localStorage.setItem(PLACE_LABELS_KEY, next ? '1' : '0');
+      return next;
+    });
+  }, []);
+
+  // 우하단 도구 묶음 펼침 여부. 다섯 개를 항상 세워두면 세로를 너무 먹어서, 자주 쓰는
+  // 장소명 토글·현재 위치만 밖에 두고 나머지(링크 복사/소개/피드백)는 접어둠.
+  // 상시 노출 순서는 위에서부터 꺾쇠 → 장소명 → 현재 위치. 접히는 항목은 꺾쇠 위로 펼쳐지므로
+  // 펼쳐도 이 세 개의 위치는 그대로 유지됨
+  const [showMoreTools, setShowMoreTools] = useState(false);
+  const moreToolsRef = useRef<HTMLDivElement>(null);
+  useClickOutside(moreToolsRef, useCallback(() => setShowMoreTools(false), []));
 
   // About modal state
   const [showAbout, setShowAbout] = useState(false);
@@ -176,7 +204,7 @@ function Home() {
         const placeData = await placeApi.getById(id);
         if (cancelled) return;
         setHighlightPosition({ lat: placeData.latitude, lng: placeData.longitude });
-        setMoveTo({ lat: placeData.latitude, lng: placeData.longitude, zoom: MAP_ZOOM.DEFAULT });
+        setMoveTo({ lat: placeData.latitude, lng: placeData.longitude, zoom: MAP_ZOOM.PLACE });
         timer = setTimeout(() => {
           if (cancelled) return;
           const screenPos = mapRef.current?.coordToScreenPosition(placeData.latitude, placeData.longitude);
@@ -260,7 +288,8 @@ function Home() {
         onMarkerClick={place.handleMarkerClick}
         onMapClick={place.handleMapClick}
         center={DEFAULT_CENTER}
-        zoom={MAP_ZOOM.DEFAULT}
+        zoom={MAP_ZOOM.START}
+        showLabels={showLabels}
         moveTo={moveTo}
         previewPosition={place.previewPlace ? { lat: place.previewPlace.lat, lng: place.previewPlace.lng } : null}
         highlightPosition={highlightPosition}
@@ -453,27 +482,49 @@ function Home() {
       </div>
 
       {/* Floating action buttons - bottom right */}
-      <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-10 flex flex-col gap-2">
-        <button
-          onClick={handleMoveToCurrentLocation}
-          className={`backdrop-blur p-2.5 rounded-full shadow-lg transition-colors ${isTrackingLocation ? 'bg-blue-500 hover:bg-blue-600' : 'bg-white/90 hover:bg-white'}`}
-          title={isTrackingLocation ? '위치 추적 중지' : '현재 위치로 이동'}
-        >
-          <CurrentLocationIcon className={`w-5 h-5 ${isTrackingLocation ? 'text-white' : 'text-gray-600'}`} />
-        </button>
-        <ShareLinkButton />
+      <div ref={moreToolsRef} className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-10 flex flex-col gap-2">
+        {showMoreTools && (
+          <>
+            <ShareLinkButton />
+            <FloatingIconButton
+              onClick={() => { setShowAbout(true); setShowAboutBadge(false); localStorage.setItem('about-seen', '1'); }}
+              title="프로젝트 소개"
+              className="relative"
+            >
+              <MegaphoneIcon className="w-5 h-5 text-gray-600" />
+              {showAboutBadge && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+              )}
+            </FloatingIconButton>
+            <FloatingIconButton onClick={() => setShowFeedback(true)} title="피드백">
+              <ChatBubbleIcon className="w-5 h-5 text-gray-600" />
+            </FloatingIconButton>
+          </>
+        )}
         <FloatingIconButton
-          onClick={() => { setShowAbout(true); setShowAboutBadge(false); localStorage.setItem('about-seen', '1'); }}
-          title="프로젝트 소개"
+          onClick={() => setShowMoreTools((prev) => !prev)}
+          title={showMoreTools ? '접기' : '더보기'}
           className="relative"
         >
-          <MegaphoneIcon className="w-5 h-5 text-gray-600" />
-          {showAboutBadge && (
+          <ChevronUpIcon className={`w-5 h-5 text-gray-600 transition-transform ${showMoreTools ? 'rotate-180' : ''}`} />
+          {/* 소개 '새 글' 배지는 접혀 있으면 안 보이므로 여기로 올려줌 — 안 그러면 배지를 볼 방법이 없음 */}
+          {showAboutBadge && !showMoreTools && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
           )}
         </FloatingIconButton>
-        <FloatingIconButton onClick={() => setShowFeedback(true)} title="피드백">
-          <ChatBubbleIcon className="w-5 h-5 text-gray-600" />
+        <FloatingIconButton
+          onClick={toggleLabels}
+          title={showLabels ? '장소명 숨기기' : '장소명 표기'}
+          className={showLabels ? 'ring-2 ring-blue-500' : ''}
+        >
+          <PlaceLabelIcon className={`w-5 h-5 ${showLabels ? 'text-blue-600' : 'text-gray-400'}`} off={!showLabels} />
+        </FloatingIconButton>
+        <FloatingIconButton
+          onClick={handleMoveToCurrentLocation}
+          title={isTrackingLocation ? '위치 추적 중지' : '현재 위치로 이동'}
+          className={isTrackingLocation ? 'ring-2 ring-blue-500' : ''}
+        >
+          <CurrentLocationIcon className={`w-5 h-5 ${isTrackingLocation ? 'text-blue-600' : 'text-gray-600'}`} />
         </FloatingIconButton>
       </div>
 
