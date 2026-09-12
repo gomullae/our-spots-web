@@ -109,7 +109,7 @@ export interface WeightMeta {
   lastModified: string | null;
 }
 
-export type PaymentMethod = 'WOW_CARD' | 'KB_CARD' | 'WOORI_CARD' | 'HYUNDAI_CARD' | 'CHOYOUNG_PAYMENT' | 'OTHER';
+export type PaymentMethod = 'WOW_CARD' | 'KB_CARD' | 'WOORI_CARD' | 'HYUNDAI_CARD' | 'JINWOO_IEUM_CARD' | 'CHOYOUNG_IEUM_CARD' | 'CHOYOUNG_PAYMENT' | 'OTHER' | 'SUBSIDY';
 export type ExpenseCategory = 'FOOD' | 'LIVING' | 'IRREGULAR';
 
 export interface ExpenseRecord {

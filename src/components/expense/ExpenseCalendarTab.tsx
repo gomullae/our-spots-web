@@ -8,10 +8,10 @@ import { useLatestRequestGuard } from '@/hooks/useLatestRequestGuard';
 import { useSwipeNav } from '@/hooks/useSwipeNav';
 import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
-import { ExpenseCategory, ExpenseMeta, ExpenseRecord } from '@/types';
+import { ExpenseCategory, ExpenseMeta, ExpenseRecord, PaymentMethod } from '@/types';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
 import { isSameExpenseMeta, readExpenseCache, writeExpenseCache } from '@/utils/expenseCache';
-import { formatAmount, formatAmountCompact, sumAmount } from '@/utils/expenseFormat';
+import { compareBySubsidyLastThenAmountDesc, formatAmount, formatAmountCompact, sumAmount } from '@/utils/expenseFormat';
 import { WeekRange, currentYearMonth, formatMonthLabel, formatMonthShortLabel, formatWeekLabel, getMonthWeeks, shiftMonth } from '@/utils/expenseDate';
 import { parseDateString, shiftDate } from '@/utils/weightDate';
 import { getHoliday } from '@/constants/holidays';
@@ -64,12 +64,16 @@ function inRange(record: ExpenseRecord, week: WeekRange): boolean {
 function weekDays(week: WeekRange, yearMonth: string, records: ExpenseRecord[]) {
   return Array.from({ length: 7 }, (_, i) => {
     const date = shiftDate(week.start, i);
-    const amount = sumAmount(records.filter((r) => r.expenseDate === date));
+    const dayRecords = records.filter((r) => r.expenseDate === date);
     const holiday = getHoliday(date);
     return {
       date,
       dayNum: parseDateString(date).getDate(),
-      amount,
+      amount: sumAmount(dayRecords),
+      // 지원금이 그 날 다른 지출과 같거나 크면 순액이 0 이하가 될 수 있음 — 이 경우에도 기록 자체는
+      // 있으므로 칸을 비워버리면 안 됨(formatAmountCompact 참고). 그래서 "표시할지"는 순액 부호가 아니라
+      // 그 날 실제 기록 존재 여부로 판단
+      hasRecords: dayRecords.length > 0,
       inMonth: date.startsWith(yearMonth),
       holidayName: holiday?.name,
     };
@@ -167,7 +171,9 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const monthTotal = sumAmount(monthRecords);
 
   if (selectedWeek) {
-    const weekRecords = visibleRecords.filter((r) => inRange(r, selectedWeek)).sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
+    const weekRecords = visibleRecords
+      .filter((r) => inRange(r, selectedWeek))
+      .sort((a, b) => a.expenseDate.localeCompare(b.expenseDate) || compareBySubsidyLastThenAmountDesc(a, b));
 
     const handleSendSummary = async () => {
       const budget = Number(budgetInput);
@@ -218,27 +224,56 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
           <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>
         ) : weekRecords.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-10">이 주에 등록된 내역이 없습니다</p>
-        ) : detailTab === 'method' ? (
-          <div className="p-4 space-y-3">
-            {PAYMENT_METHODS.map((method) => {
-              const items = weekRecords.filter((r) => r.paymentMethod === method);
-              if (items.length === 0) return null;
-              return (
-                <div key={method}>
-                  <div className="flex items-center justify-between text-sm font-medium">
-                    <span>{PAYMENT_METHOD_LABELS[method]} <span className="text-xs text-gray-400 font-normal">{items.length}건</span></span>
-                    <span>{formatAmount(sumAmount(items))}</span>
-                  </div>
-                  <ul className="mt-1 space-y-0.5">
-                    {items.map((r) => (
-                      <TransactionRow key={r.id} record={r} showMethod={false} />
-                    ))}
-                  </ul>
+        ) : detailTab === 'method' ? (() => {
+          // 텔레그램 주간 정산과 동일한 기준(초영결제/초영이음카드=초영, 나머지 전부=진우)으로 묶어서
+          // "진우 카드들 → 진우 소계 → 초영 카드들 → 초영결제 소계 → 지원금 → 지원금 소계" 순서로 렌더링 —
+          // 결제수단별 목록 사이사이에 소계를 끼워 넣어달라는 요청이라 PAYMENT_METHODS 순서 그대로 죽
+          // 나열하는 대신 이 세 블록으로 재구성함. 지원금은 진우/초영 어느 결제도 아닌 별도 항목이라
+          // 진우/초영 소계 계산에서 완전히 제외
+          const choyoungMethods: PaymentMethod[] = ['CHOYOUNG_PAYMENT', 'CHOYOUNG_IEUM_CARD'];
+          const jinwooMethods = PAYMENT_METHODS.filter((m) => m !== 'SUBSIDY' && !choyoungMethods.includes(m));
+          const choyoungTotal = sumAmount(weekRecords.filter((r) => choyoungMethods.includes(r.paymentMethod)));
+          const subsidyTotal = weekRecords.filter((r) => r.paymentMethod === 'SUBSIDY').reduce((sum, r) => sum + r.amount, 0);
+          const jinwooTotal = sumAmount(weekRecords.filter((r) => jinwooMethods.includes(r.paymentMethod)));
+
+          const renderMethodGroup = (method: PaymentMethod) => {
+            const items = weekRecords.filter((r) => r.paymentMethod === method);
+            if (items.length === 0) return null;
+            return (
+              <div key={method}>
+                <div className="flex items-center justify-between text-sm font-medium">
+                  <span>{PAYMENT_METHOD_LABELS[method]} <span className="text-xs text-gray-400 font-normal">{items.length}건</span></span>
+                  <span>{formatAmount(sumAmount(items))}</span>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
+                <ul className="mt-1 space-y-0.5">
+                  {items.map((r) => (
+                    <TransactionRow key={r.id} record={r} showMethod={false} />
+                  ))}
+                </ul>
+              </div>
+            );
+          };
+
+          // 개별 카드 항목(text-sm font-medium)보다 오히려 눈에 안 띄던 문제 — 배경을 얹고 금액을
+          // 한 단계 더 키워서 각 묶음의 결론(소계)이 낱개 카드 목록보다 확실히 도드라지게 함
+          const renderSubtotal = (label: string, amount: number, colorClass = 'text-gray-900') => (
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-100 rounded-lg">
+              <span className="text-xs font-semibold text-gray-600">{label}</span>
+              <span className={`text-sm font-bold ${colorClass}`}>{formatAmount(amount)}</span>
+            </div>
+          );
+
+          return (
+            <div className="p-4 space-y-3">
+              {jinwooMethods.map(renderMethodGroup)}
+              {jinwooTotal > 0 && renderSubtotal('진우 소계', jinwooTotal)}
+              {choyoungMethods.map(renderMethodGroup)}
+              {choyoungTotal > 0 && renderSubtotal('초영결제 소계', choyoungTotal)}
+              {renderMethodGroup('SUBSIDY')}
+              {subsidyTotal > 0 && renderSubtotal('지원금 소계', -subsidyTotal, 'text-green-600')}
+            </div>
+          );
+        })() : (
           <div className="p-4 space-y-5">
             {visibleCategories.map((category) => {
               const items = weekRecords.filter((r) => r.category === category);
@@ -345,7 +380,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
             {expandedCategory && (() => {
               const items = monthRecords
                 .filter((r) => r.category === expandedCategory)
-                .sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
+                .sort((a, b) => a.expenseDate.localeCompare(b.expenseDate) || compareBySubsidyLastThenAmountDesc(a, b));
               const totalPages = Math.ceil(items.length / CATEGORY_PAGE_SIZE);
               const paged = items.slice(categoryPage * CATEGORY_PAGE_SIZE, (categoryPage + 1) * CATEGORY_PAGE_SIZE);
 
@@ -379,10 +414,12 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
               const weekRecords = visibleRecords.filter((r) => inRange(r, week));
               const weekTotal = sumAmount(weekRecords);
               const days = weekDays(week, yearMonth, visibleRecords);
-              // 비정기지출은 예산 판단 대상이 아니므로(주간 정산 텔레그램과 동일 원칙) 정기지출 모드 +
-              // 지출이 있는 주에서만 배지 표시 — 예산 절약이면 초록, 초과면 빨강
+              // weekTotal 자체가 이미 현재 보기 모드 기준(정기지출만 / 비정기지출 포함)이라 배지도
+              // 그 숫자 그대로 예산과 비교 — 정기지출 모드에선 "정기 예산 대비", 비정기지출 포함
+              // 모드에선 "비정기지출까지 합친 전체 지출 대비" 초과/절약이 됨(주간 정산 텔레그램의
+              // 정기 예산/전체 지출 두 줄 비교와 동일한 원리). 지출이 있는 주에서만 표시
               const budgetDiff = DEFAULT_WEEKLY_BUDGET - weekTotal;
-              const showBudgetBadge = viewMode === 'REGULAR' && weekTotal > 0;
+              const showBudgetBadge = weekTotal > 0;
               return (
                 <div key={week.start} className="px-3 py-2">
                   {/* 주 총액 = 주간 상세로 이동하는 버튼 — 화살표 아이콘으로 눌러야 하는 영역임을 표시(날짜 칸과는 별개 클릭 영역) */}
@@ -412,7 +449,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
                       >
                         <span className={`text-[10px] ${dayNumberColor(i, !!day.holidayName)}`}>{day.dayNum}</span>
                         <span className="text-[9px] font-semibold text-gray-700 h-3">
-                          {formatAmountCompact(day.amount)}
+                          {day.hasRecords ? formatAmountCompact(day.amount) : ''}
                         </span>
                       </button>
                     ))}

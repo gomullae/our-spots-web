@@ -1,6 +1,6 @@
 import { ExpenseRecord } from '@/types';
 import { PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
-import { formatAmount } from '@/utils/expenseFormat';
+import { effectiveAmount, formatAmount } from '@/utils/expenseFormat';
 
 export default function TransactionRow({
   record,
@@ -11,6 +11,7 @@ export default function TransactionRow({
   showDate?: boolean;
   showMethod?: boolean;
 }) {
+  const isSubsidy = record.paymentMethod === 'SUBSIDY';
   return (
     <li className="flex items-center gap-2 text-xs text-gray-500">
       {showDate && <span className="shrink-0">{record.expenseDate.slice(5)}</span>}
@@ -20,7 +21,10 @@ export default function TransactionRow({
           {PAYMENT_METHOD_LABELS[record.paymentMethod]}
         </span>
       )}
-      <span className="shrink-0 min-w-20 text-right whitespace-nowrap">{formatAmount(record.amount)}</span>
+      {/* 지원금은 일반 지출과 헷갈리지 않도록 음수 + 초록색으로 표시(effectiveAmount가 이미 부호를 뒤집어줌) */}
+      <span className={`shrink-0 min-w-20 text-right whitespace-nowrap ${isSubsidy ? 'text-green-600' : ''}`}>
+        {formatAmount(effectiveAmount(record))}
+      </span>
     </li>
   );
 }

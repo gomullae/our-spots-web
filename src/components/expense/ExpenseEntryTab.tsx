@@ -7,7 +7,7 @@ import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
 import { ExpenseCategory, ExpenseRecord, ExpenseRecordPayload, PaymentMethod } from '@/types';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_BADGE_COLORS, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
-import { formatAmount, formatDateTimeCompact, sumAmount } from '@/utils/expenseFormat';
+import { effectiveAmount, formatAmount, formatDateTimeCompact, sumAmount } from '@/utils/expenseFormat';
 import { parseDateString, toDateString, todayString } from '@/utils/weightDate';
 
 interface ExpenseEntryTabProps {
@@ -316,7 +316,9 @@ export default function ExpenseEntryTab({ showToast, showConfirm }: ExpenseEntry
                     {!record.deletedAt && wasEdited(record) && (
                       <span className="text-[10px] text-gray-400">수정됨 · {formatDateTimeCompact(record.updatedAt)}</span>
                     )}
-                    <span className="text-xs text-gray-700 font-medium ml-auto">{formatAmount(record.amount)}</span>
+                    <span className={`text-xs font-medium ml-auto ${record.paymentMethod === 'SUBSIDY' ? 'text-green-600' : 'text-gray-700'}`}>
+                      {formatAmount(effectiveAmount(record))}
+                    </span>
                   </div>
                 </div>
               </li>

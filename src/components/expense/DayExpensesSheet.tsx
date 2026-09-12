@@ -5,7 +5,7 @@ import { getHoliday } from '@/constants/holidays';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useSwipeDownToClose } from '@/hooks/useSwipeDownToClose';
 import { ExpenseRecord } from '@/types';
-import { formatAmount, sumAmount } from '@/utils/expenseFormat';
+import { compareBySubsidyLastThenAmountDesc, formatAmount, sumAmount } from '@/utils/expenseFormat';
 import { formatDisplayDate } from '@/utils/weightDate';
 import TransactionRow from './TransactionRow';
 
@@ -21,8 +21,8 @@ export default function DayExpensesSheet({ date, records, onClose }: DayExpenses
   useEscapeKey(onClose);
   const holiday = getHoliday(date);
   const total = sumAmount(records);
-  // 금액 큰 순으로 — 그 날 어디에 많이 썼는지 한눈에 보이도록
-  const sortedRecords = [...records].sort((a, b) => b.amount - a.amount);
+  // 금액 큰 순으로 — 그 날 어디에 많이 썼는지 한눈에 보이도록(지원금은 항상 맨 아래)
+  const sortedRecords = [...records].sort(compareBySubsidyLastThenAmountDesc);
   // 손잡이+헤더 영역에서만 반응 — 목록 스크롤 영역까지 포함하면 내역이 많을 때 스크롤하려다 닫히는 오작동이 생김
   const { handleDragStart, handleDragEnd } = useSwipeDownToClose(onClose);
 

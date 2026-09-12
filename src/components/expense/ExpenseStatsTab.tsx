@@ -7,7 +7,7 @@ import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
 import { ExpenseCategory, ExpenseRecord, PaymentMethod } from '@/types';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
-import { formatAmount, sumAmount } from '@/utils/expenseFormat';
+import { compareBySubsidyLastThenAmountDesc, formatAmount, sumAmount } from '@/utils/expenseFormat';
 import { shiftDate, todayString } from '@/utils/weightDate';
 import TransactionRow from './TransactionRow';
 
@@ -237,7 +237,7 @@ export default function ExpenseStatsTab({ showToast }: ExpenseStatsTabProps) {
             {groups.map((group) => {
               const groupTotal = sumAmount(group.records);
               const isExpanded = expandedGroup === group.key;
-              const items = [...group.records].sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
+              const items = [...group.records].sort((a, b) => a.expenseDate.localeCompare(b.expenseDate) || compareBySubsidyLastThenAmountDesc(a, b));
               const totalPages = Math.ceil(items.length / DETAIL_PAGE_SIZE);
               const paged = items.slice(detailPage * DETAIL_PAGE_SIZE, (detailPage + 1) * DETAIL_PAGE_SIZE);
 
