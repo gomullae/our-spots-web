@@ -82,10 +82,11 @@ function Home() {
     message: string;
     onConfirm: () => void;
     isDestructive?: boolean;
+    confirmLabel?: string;
   } | null>(null);
 
-  const showConfirm = useCallback((message: string, onConfirm: () => void, isDestructive?: boolean) => {
-    setConfirmState({ message, onConfirm, isDestructive });
+  const showConfirm = useCallback((message: string, onConfirm: () => void, isDestructive?: boolean, confirmLabel?: string) => {
+    setConfirmState({ message, onConfirm, isDestructive, confirmLabel });
   }, []);
 
   // Preview card screen position (computed after map moves)
@@ -430,6 +431,7 @@ function Home() {
           initialAddress={place.newPlaceCoords.address}
           initialName={place.newPlaceCoords.name}
           isAuthenticated={auth.isAuthenticated}
+          existingMarkers={markers}
           onSubmit={place.handleCreatePlace}
           onClose={place.handleCloseForm}
           showToast={showToast}
@@ -551,6 +553,7 @@ function Home() {
         <ConfirmModal
           message={confirmState.message}
           isDestructive={confirmState.isDestructive}
+          confirmLabel={confirmState.confirmLabel}
           onConfirm={() => { confirmState.onConfirm(); setConfirmState(null); }}
           onCancel={() => setConfirmState(null)}
         />

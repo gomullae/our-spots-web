@@ -1,8 +1,13 @@
 import { Marker, PlaceType } from '@/types';
 import { getMarkerColor, getTypeAccentColor } from '@/constants/placeConfig';
 
-// 좌표를 키로 변환 (소수점 5자리까지 반올림하여 같은 위치 판단)
-export const coordKey = (lat: number, lng: number) => `${lat.toFixed(5)},${lng.toFixed(5)}`;
+// 좌표를 키로 변환해 같은 위치 판단 — 소수점 4자리(위도 기준 약 11m)까지 반올림.
+// 원래 5자리(약 1.1m)였는데, 같은 가게를 두 번 등록했을 때 지오코딩이 매번 완전히 같은 좌표를
+// 반환하지 않아 중복 등록이 그룹 마커로 안 묶이고 개별 마커 두 개가 겹쳐 보이는 문제가 있었음
+// (2026-09-13). 허용 오차를 넓혀도 그룹 안의 장소가 실제로 서로 다른 가게라면 그룹 마커 클릭 시
+// 목록(PlaceListPopup)에서 그대로 구분되므로 정보 손실은 없음 — 다만 밀집 상권에서 몇 미터 간격의
+// 서로 다른 가게까지 한 그룹으로 묶일 수 있는 트레이드오프는 있음
+export const coordKey = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
 
 // PlaceType별 SVG path
 export function getIconPath(placeType: string): string {

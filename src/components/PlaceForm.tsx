@@ -6,8 +6,14 @@ import PhotoUploadSection, { PendingPhoto } from '@/components/PhotoUploadSectio
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { Toast } from '@/hooks/useToast';
 import { photoApi } from '@/services/api';
-import { Photo, Place, PlaceType } from '@/types';
+import { Marker, Photo, Place, PlaceType } from '@/types';
 import { TYPE_CONFIG, GRADE_CONFIG, PUBLIC_TYPES, PERSONAL_TYPES } from '@/constants/placeConfig';
+import { distanceMeters } from '@/utils/geo';
+import { nameSimilarity } from '@/utils/similarity';
+
+// 근처에 비슷한 이름의 장소가 이미 있는지 경고할 때 쓰는 기준 — 둘 다 숫자만 바꾸면 민감도 조절 가능
+const NEARBY_DUPLICATE_RADIUS_METERS = 50;
+const SIMILAR_NAME_THRESHOLD = 0.6;
 
 interface PlaceFormProps {
   latitude: number;
@@ -21,11 +27,13 @@ interface PlaceFormProps {
   initialPhotos?: Photo[];
   isEditMode?: boolean;
   isAuthenticated: boolean;
+  // 신규 등록 모드에서만 전달 — 저장 직전 "근처에 비슷한 이름의 장소가 이미 있는지" 확인용(수정 모드는 검사 대상 아님)
+  existingMarkers?: Marker[];
   // 저장 성공 후 생성/수정된 장소(id 포함)를 반환해야 그 시점에 첨부 사진을 confirm()할 수 있음
   onSubmit: (data: PlaceFormData) => Promise<Place>;
   onClose: () => void;
   showToast: (message: string, type?: Toast['type']) => void;
-  showConfirm: (message: string, onConfirm: () => void, isDestructive?: boolean) => void;
+  showConfirm: (message: string, onConfirm: () => void, isDestructive?: boolean, confirmLabel?: string) => void;
 }
 
 export interface PlaceFormData {
@@ -38,7 +46,7 @@ export interface PlaceFormData {
   grade?: number;
 }
 
-export default function PlaceForm({ latitude, longitude, initialAddress, initialName, initialType, initialDescription, initialGrade, initialPhotos, isEditMode, isAuthenticated, onSubmit, onClose, showToast, showConfirm }: PlaceFormProps) {
+export default function PlaceForm({ latitude, longitude, initialAddress, initialName, initialType, initialDescription, initialGrade, initialPhotos, isEditMode, isAuthenticated, existingMarkers, onSubmit, onClose, showToast, showConfirm }: PlaceFormProps) {
   const [name, setName] = useState(initialName || '');
   const [type, setType] = useState<PlaceType>(initialType || 'RESTAURANT');
   const [address, setAddress] = useState(initialAddress || '');
@@ -55,13 +63,7 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
   const [savedPlace, setSavedPlace] = useState<Place | null>(null);
   useEscapeKey(onClose);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !address.trim()) return;
-    if (!isAuthenticated) {
-      setError('로그인 후 이용해주세요');
-      return;
-    }
+  const proceedSubmit = async () => {
     setError(undefined);
     setIsSubmitting(true);
     try {
@@ -93,6 +95,31 @@ export default function PlaceForm({ latitude, longitude, initialAddress, initial
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !address.trim()) return;
+    if (!isAuthenticated) {
+      setError('로그인 후 이용해주세요');
+      return;
+    }
+
+    // 신규 등록만 검사 — 수정은 이미 존재하는 그 장소 자신과 비교될 뿐이라 대상 아님
+    if (!isEditMode && existingMarkers) {
+      const trimmedName = name.trim();
+      const nearbyDuplicate = existingMarkers.find(
+        (m) =>
+          distanceMeters(m.latitude, m.longitude, latitude, longitude) <= NEARBY_DUPLICATE_RADIUS_METERS &&
+          nameSimilarity(m.name, trimmedName) >= SIMILAR_NAME_THRESHOLD
+      );
+      if (nearbyDuplicate) {
+        showConfirm(`근처에 '${nearbyDuplicate.name}'(이)라는 가게가 이미 등록되어있습니다. 등록하시겠습니까?`, proceedSubmit, false, '등록');
+        return;
+      }
+    }
+
+    await proceedSubmit();
   };
 
   return (
