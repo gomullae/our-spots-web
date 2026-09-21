@@ -38,7 +38,7 @@ export default function ExpenseForm({
   useEscapeKey(onClose);
 
   const amountValue = Number(amount);
-  const isValid = merchant.trim().length > 0 && amountValue > 0 && expenseDate <= todayString();
+  const isValid = merchant.trim().length > 0 && amountValue !== 0 && expenseDate <= todayString();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,10 +126,9 @@ export default function ExpenseForm({
         <input
           type="number"
           inputMode="numeric"
-          min={1}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="원"
+          placeholder="원 (환불/취소는 음수로 입력)"
           className="w-full px-3 py-2 border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
