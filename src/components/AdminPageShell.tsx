@@ -83,7 +83,15 @@ export default function AdminPageShell({
   return (
     <div className="h-dvh bg-gray-100 flex justify-center overflow-hidden">
       <div className={`w-full ${maxWidthClassName} bg-white shadow-sm flex flex-col h-full`}>
-        <header className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+        {/* 홈 화면 추가(PWA) 시 viewport-fit=cover라 콘텐츠가 상태바 영역까지 확장됨 — 일반 브라우저 탭에서는
+            env(safe-area-inset-top)이 0이라 기존과 거의 동일(여유분 12px 추가). PWA에서는 상태바 높이 +
+            여유분만큼 밀려서 타이틀이 안 가려짐 — iOS(26.1~)가 상태바 영역에 정확히 safe-area-inset-top
+            높이만큼만 흐림 효과를 주는 게 아니라 그보다 살짝 더 번져 보이는 경우가 있어서, 여유를 둠
+            (6px→8px→10px로 줄여봤다가 12px이 딱 맞아서 원복, 2026-09-29) */}
+        <header
+          className="flex items-center gap-2 px-4 py-3 border-b shrink-0"
+          style={{ paddingTop: 'calc(max(0.75rem, env(safe-area-inset-top)) + 12px)' }}
+        >
           {showBackButton && (
             <button
               onClick={() => router.push('/')}

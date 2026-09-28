@@ -300,10 +300,18 @@ function Home() {
         currentLocation={currentLocation}
       />
 
-      {/* Header */}
+      {/* Header — 홈 화면 추가(PWA) 시 viewport-fit=cover라 콘텐츠가 상태바 영역까지 확장됨. 일반 브라우저
+          탭에서는 env(safe-area-inset-top)이 0이라 거의 그대로(여유분 12px 추가). iOS가 정확히
+          safe-area-inset-top 높이만큼만 흐림 효과를 주지 않고 살짝 더 번져 보이는 경우가 있어서 여유를
+          둠(6px→8px→10px로 줄여봤다가 12px이 딱 맞아서 원복, 2026-09-29). ⚠️ 이 패딩은 <header> 자체가
+          아니라 흰 배경이 있는 Title Bar div에 줘야 함 — 투명한 <header>에 주면 그 틈으로 뒤의 지도(회색)가
+          비쳐서 흰 타이틀바 위에 이질적인 회색 띠가 생김(관리자 페이지는 배경이 통째로 흰색이라 이 문제가 없었음) */}
       <header ref={headerRef} className="absolute top-0 left-0 right-0 z-10">
         {/* Title Bar */}
-        <div className="bg-white border-b border-gray-100 shadow-sm">
+        <div
+          className="bg-white border-b border-gray-100 shadow-sm"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+        >
           <div className="px-4 py-2.5 flex items-center gap-2">
             <LocationPinIcon className="w-5 h-5 text-red-500 shrink-0" />
             <h1

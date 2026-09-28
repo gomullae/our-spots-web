@@ -6,7 +6,7 @@
   "scope": "/admin/schedule",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1E293B",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/icon-schedule-192.png",

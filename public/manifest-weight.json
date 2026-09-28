@@ -6,7 +6,7 @@
   "scope": "/admin/weight",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1E293B",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/icon-weight-192.png",

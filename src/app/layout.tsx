@@ -25,6 +25,11 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  // manifest*.json의 theme_color(JSON)만으로는 부족함 — iOS(특히 26.1~)가 PWA 상태바 색을 정확히
+  // 읽으려면 <meta name="theme-color"> 태그가 HTML head에 직접 있어야 함(2026-09-28 확인). 이게
+  // 없어서 상태바 영역 색이 흰 배경과 안 맞아 흐릿하게 섞여 보였음. 다른 페이지(admin/*)는 이
+  // viewport를 따로 오버라이드하지 않아 그대로 상속받음
+  themeColor: "#ffffff",
 };
 
 export const metadata: Metadata = {
@@ -38,6 +43,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
+    // black-translucent로 시도했다가 원복(2026-09-28) — 진짜 원인은 상태바 스타일이 아니라
+    // manifest*.json의 theme_color가 진한 남색(#1E293B)으로, 흰 배경 앱과 안 맞아서 PWA 홈 화면
+    // 실행 시 상태바 영역이 흐릿하게 섞여 보이는 문제였음(theme_color를 #ffffff로 맞춤). default가
+    // 흰 배경+검정 상태바 텍스트 조합엔 표준적으로 맞는 짝
     statusBarStyle: "default",
     title: "Our Spots",
   },
