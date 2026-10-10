@@ -85,9 +85,7 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
     }
   };
 
-  const handleCopyLink = async () => {
-    if (!place) return;
-    const url = `${window.location.origin}?place=${place.id}`;
+  const copyLinkToClipboard = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -103,6 +101,28 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
     setIsLinkCopied(true);
     clearTimeout(linkTimerRef.current);
     linkTimerRef.current = setTimeout(() => setIsLinkCopied(false), 2000);
+  };
+
+  // OS 공유 시트(navigator.share)로 장소 링크를 보냄 — 카카오톡을 고르면 링크가 일반 메시지로 전송돼서 카카오가
+  // 링크 미리보기(제목/주소/사진 + 맨 아래 도메인)를 자동으로 만들어줌. 카카오 공유 SDK로 보내면 카드 맨 아래에
+  // 카카오 개발자 콘솔의 앱 이름이 고정으로 붙어서 이 방식으로 바꿈. 공유 시트를 지원하지 않는 브라우저(PC
+  // 파이어폭스 등)나 실패 시에는 링크를 대신 복사해줌
+  const handleShare = async () => {
+    if (!place) return;
+    const url = `${window.location.origin}/?place=${place.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: place.name, url });
+      } catch (err) {
+        // 사용자가 공유 시트를 닫은 경우는 정상 — 복사하지 않고 조용히 끝냄
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.error('Failed to open share sheet:', err);
+        await copyLinkToClipboard(url);
+        onToast?.('공유를 열 수 없어 링크를 복사했어요', 'info');
+      }
+      return;
+    }
+    await copyLinkToClipboard(url);
   };
 
   const handleEdit = () => {
@@ -315,7 +335,7 @@ export default function PlaceDetail({ place, isLoading, onClose, onEdit, onDelet
               </>
             )}
             <button
-              onClick={handleCopyLink}
+              onClick={handleShare}
               className="flex-1 py-1.5 px-3 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
             >
               {isLinkCopied ? '복사됨' : '공유'}
