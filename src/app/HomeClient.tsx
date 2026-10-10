@@ -55,6 +55,7 @@ function Home() {
     selectedTypes,
     selectedGrades,
     handleTypeToggle,
+    showType,
     setSelectedGrades,
   } = useMarkerFilter({ markers, isAuthenticated: auth.isAuthenticated });
 
@@ -204,6 +205,8 @@ function Home() {
       try {
         const placeData = await placeApi.getById(id);
         if (cancelled) return;
+        // 비로그인 기본 필터(맛집 꺼짐) 때문에 공유받은 장소의 마커가 안 보이지 않게 그 장소의 타입을 켬
+        showType(placeData.type);
         setHighlightPosition({ lat: placeData.latitude, lng: placeData.longitude });
         setMoveTo({ lat: placeData.latitude, lng: placeData.longitude, zoom: MAP_ZOOM.PLACE });
         timer = setTimeout(() => {

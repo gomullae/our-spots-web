@@ -12,11 +12,15 @@ interface UseMarkerFilterReturn {
   selectedTypes: Set<PlaceType>;
   selectedGrades: Set<number>;
   handleTypeToggle: (type: PlaceType | null) => void;
+  showType: (type: PlaceType) => void;
   setSelectedGrades: (grades: Set<number>) => void;
 }
 
 const ALL_GRADES = new Set(GRADE_LABELS.map(g => g.grade));
 const DEFAULT_GRADES = new Set([1, 2]); // 기본: 최애, 추천
+// 비로그인 방문자의 기본 선택(2026-10-10~) — 아이 놀이터 + 아빠의 시간만. 맛집은 칩("맛집"/"전체")을 눌러야 보임.
+// 로그인하면 아래 로그인 분기에서 공개 3타입 전부(+나의 발자취)가 켜짐
+const VISITOR_DEFAULT_TYPES: PlaceType[] = ['KIDS_PLAYGROUND', 'RELAXATION'];
 
 /**
  * 마커 필터링 로직을 캡슐화한 훅
@@ -28,7 +32,7 @@ export function useMarkerFilter({
   markers,
   isAuthenticated,
 }: UseMarkerFilterOptions): UseMarkerFilterReturn {
-  const [selectedTypes, setSelectedTypes] = useState<Set<PlaceType>>(new Set(PUBLIC_TYPES));
+  const [selectedTypes, setSelectedTypes] = useState<Set<PlaceType>>(() => new Set(VISITOR_DEFAULT_TYPES));
   const [selectedGrades, setSelectedGrades] = useState<Set<number>>(DEFAULT_GRADES);
   // 로그인/로그아웃 시 개인 카테고리 자동 토글 — prop(isAuthenticated) 변화에 따른 상태 조정이라
   // effect 대신 렌더 중 조정(React 공식 패턴) — effect로 하면 토글 전 상태가 한 프레임 먼저 그려짐
@@ -36,8 +40,8 @@ export function useMarkerFilter({
   if (isAuthenticated !== prevAuthenticated) {
     setPrevAuthenticated(isAuthenticated);
     if (isAuthenticated) {
-      // 로그인: "나의 발자취" 활성화
-      setSelectedTypes(prev => new Set([...prev, 'MY_FOOTPRINT']));
+      // 로그인: 방문자 기본(맛집 꺼짐)에서 공개 3타입 전부 + "나의 발자취" 활성화 — 소유자가 매번 맛집을 직접 켜지 않게
+      setSelectedTypes(prev => new Set([...prev, ...PUBLIC_TYPES, 'MY_FOOTPRINT']));
     } else {
       // 로그아웃: 개인 카테고리 해제
       setSelectedTypes(prev => {
@@ -107,11 +111,18 @@ export function useMarkerFilter({
     });
   }, []);
 
+  // 그 타입이 꺼져 있으면 켬(이미 켜져 있으면 그대로) — 링크(?place=)로 들어온 장소의 마커가 타입 필터 때문에
+  // 안 보이는 일이 없게 함
+  const showType = useCallback((type: PlaceType) => {
+    setSelectedTypes(prev => (prev.has(type) ? prev : new Set(prev).add(type)));
+  }, []);
+
   return {
     filteredMarkers,
     selectedTypes,
     selectedGrades,
     handleTypeToggle,
+    showType,
     setSelectedGrades,
   };
 }
