@@ -28,3 +28,18 @@ export const EXPENSE_CATEGORY_BADGE_COLORS: Record<ExpenseCategory, string> = {
   LIVING: 'bg-blue-100 text-blue-600',
   IRREGULAR: 'bg-purple-100 text-purple-600',
 };
+
+// 주당 예산 — 적용 시작일(주 시작일=월요일 기준) 이후의 주부터 해당 금액. 예산을 바꿀 땐 과거 주의 절약/초과
+// 판정이 바뀌지 않도록 기존 항목은 두고 새 항목만 오름차순으로 추가할 것
+const WEEKLY_BUDGET_SCHEDULE: { from: string; amount: number }[] = [
+  { from: '0000-01-01', amount: 420000 },
+  { from: '2026-10-26', amount: 350000 },
+];
+
+export function getWeeklyBudget(weekStart: string): number {
+  let amount = WEEKLY_BUDGET_SCHEDULE[0].amount;
+  for (const entry of WEEKLY_BUDGET_SCHEDULE) {
+    if (entry.from <= weekStart) amount = entry.amount;
+  }
+  return amount;
+}

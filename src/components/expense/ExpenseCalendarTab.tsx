@@ -9,7 +9,7 @@ import { useSwipeNav } from '@/hooks/useSwipeNav';
 import { Toast } from '@/hooks/useToast';
 import { expenseApi } from '@/services/api';
 import { ExpenseCategory, ExpenseMeta, ExpenseRecord, PaymentMethod } from '@/types';
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@/constants/expenseConfig';
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, PAYMENT_METHODS, PAYMENT_METHOD_LABELS, getWeeklyBudget } from '@/constants/expenseConfig';
 import { isSameExpenseMeta, readExpenseCache, writeExpenseCache } from '@/utils/expenseCache';
 import { compareBySubsidyLastThenAmountDesc, formatAmount, formatAmountCompact, sumAmount } from '@/utils/expenseFormat';
 import { WeekRange, currentYearMonth, formatMonthLabel, formatMonthShortLabel, formatWeekLabel, getMonthWeeks, shiftMonth } from '@/utils/expenseDate';
@@ -23,10 +23,6 @@ interface ExpenseCalendarTabProps {
 
 const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 const CATEGORY_PAGE_SIZE = 10;
-// 주간 정산 텔레그램 전송(정산 보내기)의 기본 예산과 동일한 값 — 달력 그리드의 주별 초과/절약
-// 배지도 같은 기준으로 비교해야 "정산 보내기 화면과 다른 숫자"로 헷갈리지 않음
-const DEFAULT_WEEKLY_BUDGET = 420000;
-
 // 월요일 시작 기준 5번째(토)는 파란색, 6번째(일)는 빨간색
 function weekdayColor(index: number, weak = false): string {
   if (index === 5) return weak ? 'text-blue-500' : 'text-blue-600';
@@ -91,7 +87,7 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
   const [selectedWeek, setSelectedWeek] = useState<WeekRange | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>('category');
-  const [budgetInput, setBudgetInput] = useState(String(DEFAULT_WEEKLY_BUDGET));
+  const [budgetInput, setBudgetInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const beginRequest = useLatestRequestGuard();
 
@@ -418,13 +414,17 @@ export default function ExpenseCalendarTab({ showToast }: ExpenseCalendarTabProp
               // 그 숫자 그대로 예산과 비교 — 정기지출 모드에선 "정기 예산 대비", 비정기지출 포함
               // 모드에선 "비정기지출까지 합친 전체 지출 대비" 초과/절약이 됨(주간 정산 텔레그램의
               // 정기 예산/전체 지출 두 줄 비교와 동일한 원리). 지출이 있는 주에서만 표시
-              const budgetDiff = DEFAULT_WEEKLY_BUDGET - weekTotal;
+              const budgetDiff = getWeeklyBudget(week.start) - weekTotal;
               const showBudgetBadge = weekTotal > 0;
               return (
                 <div key={week.start} className="px-3 py-2">
                   {/* 주 총액 = 주간 상세로 이동하는 버튼 — 화살표 아이콘으로 눌러야 하는 영역임을 표시(날짜 칸과는 별개 클릭 영역) */}
                   <button
-                    onClick={() => setSelectedWeek(week)}
+                    onClick={() => {
+                      // 정산 보내기 예산 입력 기본값도 달력 배지와 같은 기준(그 주에 적용되는 예산)으로 맞춤
+                      setBudgetInput(String(getWeeklyBudget(week.start)));
+                      setSelectedWeek(week);
+                    }}
                     className="w-full flex items-center justify-end gap-1.5 px-1 py-1 mb-1 rounded hover:bg-gray-100 transition-colors"
                   >
                     <span className={`text-xs ${weekTotal > 0 ? 'font-bold text-gray-900' : 'text-gray-300'}`}>
