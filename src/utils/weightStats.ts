@@ -1,5 +1,6 @@
 import { WeightRecord } from '@/types';
 import { toDateString } from '@/utils/weightDate';
+import { roundToOneDecimal } from '@/utils/weightFormat';
 
 export type Period = '3m' | '6m' | '1y' | '2y' | '3y' | 'all';
 
@@ -124,4 +125,46 @@ export function fillMonthlySeries(
     if (filled !== null) result.push({ month: monthKeys[i], weightKg: filled });
   }
   return result;
+}
+
+/** 요약 카드 날짜 — "11.21" */
+export function formatMonthDayDot(dateStr: string): string {
+  const [, m, d] = dateStr.split('-');
+  return `${m}.${d}`;
+}
+
+/** 요약 카드 날짜 — "26.03.12" */
+export function formatShortDateDot(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-');
+  return `${y.slice(2)}.${m}.${d}`;
+}
+
+export interface WeightSummary {
+  latest: WeightRecord | null;
+  max: WeightRecord | null;
+  min: WeightRecord | null;
+  /** 증감의 기준이 되는 기록 — 선택 기간의 첫 실제 기록. 기간 안 기록이 2건 미만이면 null */
+  base: WeightRecord | null;
+  /** base 대비 최근 체중 변화(kg, 소수점 1자리). base가 없으면 null */
+  change: number | null;
+}
+
+/**
+ * 최고/최저는 월평균이 아니라 실제 하루 기록 기준 — 같은 값이 여럿이면 더 최근 날짜를 고른다.
+ * rangeSorted는 선택 기간 안의 기록(날짜 오름차순), allRecords는 기간 무관 전체 기록(최근 체중용)
+ */
+export function summarizeWeights(allRecords: WeightRecord[], rangeSorted: WeightRecord[]): WeightSummary {
+  const latest = allRecords.reduce<WeightRecord | null>(
+    (best, r) => (best === null || r.recordedDate >= best.recordedDate ? r : best),
+    null
+  );
+  let max: WeightRecord | null = null;
+  let min: WeightRecord | null = null;
+  for (const r of rangeSorted) {
+    if (max === null || r.weightKg >= max.weightKg) max = r;
+    if (min === null || r.weightKg <= min.weightKg) min = r;
+  }
+  const base = rangeSorted.length >= 2 ? rangeSorted[0] : null;
+  const change = latest !== null && base !== null ? roundToOneDecimal(latest.weightKg - base.weightKg) : null;
+  return { latest, max, min, base, change };
 }

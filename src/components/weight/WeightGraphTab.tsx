@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { WeightRecord } from '@/types';
 import { todayString } from '@/utils/weightDate';
 import { formatWeight } from '@/utils/weightFormat';
@@ -17,10 +17,26 @@ import {
   monthRange,
   rawMonthlyAverages,
   fillMonthlySeries,
+  formatMonthDayDot,
+  formatShortDateDot,
+  summarizeWeights,
 } from '@/utils/weightStats';
 
 interface WeightGraphTabProps {
   records: WeightRecord[];
+}
+
+const MAX_COLOR = '#e5484d';
+const MIN_COLOR = '#2f7fe0';
+
+function SummaryCell({ label, labelColor, value, sub }: { label: string; labelColor?: string; value: string; sub: React.ReactNode }) {
+  return (
+    <div className="px-1.5 py-2.5 text-center min-w-0">
+      <div className="text-[10px] text-gray-500" style={labelColor ? { color: labelColor } : undefined}>{label}</div>
+      <div className="text-base font-medium my-0.5">{value}</div>
+      <div className="text-[10px] text-gray-400 whitespace-nowrap">{sub}</div>
+    </div>
+  );
 }
 
 export default function WeightGraphTab({ records }: WeightGraphTabProps) {
@@ -54,6 +70,8 @@ export default function WeightGraphTab({ records }: WeightGraphTabProps) {
     return [...inRange].sort((a, b) => a.recordedDate.localeCompare(b.recordedDate));
   }, [records, period]);
 
+  const summary = useMemo(() => summarizeWeights(records, rawFiltered), [records, rawFiltered]);
+
   const chartData = useMemo(() => {
     if (isRawPeriod) return rawFiltered;
     return monthlySeries.map(p => ({ recordedDate: `${p.month}-01`, weightKg: p.weightKg }));
@@ -68,6 +86,21 @@ export default function WeightGraphTab({ records }: WeightGraphTabProps) {
     for (let t = domainMin; t <= domainMax; t += 2) ticks.push(t);
     return { yDomain: [domainMin, domainMax] as [number, number], yTicks: ticks };
   }, [chartData]);
+
+  // 최고/최저 강조 점 — 원본 기간은 그 기록 자리에, 월별 기간은 그 기록이 속한 달의 점(월평균) 위에 찍는다
+  // (월별 차트의 점은 월평균이라 실제 최고/최저 값 높이에는 점이 없기 때문)
+  const markerAt = (record: WeightRecord | null) => {
+    if (!record) return null;
+    const x = isRawPeriod ? record.recordedDate : `${record.recordedDate.slice(0, 7)}-01`;
+    const point = chartData.find(p => p.recordedDate === x);
+    return point ? { x, y: point.weightKg } : null;
+  };
+  const maxMarker = summary.max && summary.max.id !== summary.min?.id ? markerAt(summary.max) : null;
+  const minMarker = summary.min && summary.max?.id !== summary.min.id ? markerAt(summary.min) : null;
+
+  const { latest, max, min, base, change } = summary;
+  const changeLabel = change === null ? null : change === 0 ? '±0.0kg' : `${change < 0 ? '▼' : '▲'}${formatWeight(Math.abs(change))}kg`;
+  const changeColor = change === null || change === 0 ? undefined : change < 0 ? MIN_COLOR : MAX_COLOR;
 
   const formatTick = isRawPeriod ? formatDayTick : formatMonthTick;
   const formatTooltipLabel = isRawPeriod ? formatFullDate : formatYearMonth;
@@ -92,13 +125,22 @@ export default function WeightGraphTab({ records }: WeightGraphTabProps) {
         <p className="text-sm text-gray-400 text-center py-10">기록된 데이터가 없습니다</p>
       ) : (
         <>
-          <p className="text-xs text-gray-500 mb-0.5">평균</p>
-          <p className="text-2xl font-medium mb-0.5">
-            {average.toFixed(1)}<span className="text-sm text-gray-500">kg</span>
-          </p>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-gray-400 mb-3">
             {formatYearMonth(monthlySeries[0].month)} ~ {formatYearMonth(monthlySeries[monthlySeries.length - 1].month)}
           </p>
+
+          <div className="grid grid-cols-4 border border-gray-200 rounded-xl mb-4 divide-x divide-gray-200">
+            <SummaryCell label="평균" value={average.toFixed(1)} sub="월평균" />
+            <SummaryCell label="최고" labelColor={MAX_COLOR} value={max ? formatWeight(max.weightKg) : '-'} sub={max ? formatShortDateDot(max.recordedDate) : '-'} />
+            <SummaryCell label="최저" labelColor={MIN_COLOR} value={min ? formatWeight(min.weightKg) : '-'} sub={min ? formatShortDateDot(min.recordedDate) : '-'} />
+            <SummaryCell label="최근" value={latest ? formatWeight(latest.weightKg) : '-'} sub={latest ? formatMonthDayDot(latest.recordedDate) : '-'} />
+          </div>
+          {base && changeLabel && (
+            <p className="text-[11px] text-gray-500 -mt-2.5 mb-4 px-0.5">
+              {formatShortDateDot(base.recordedDate)}(첫 기록 {formatWeight(base.weightKg)}kg) 대비{' '}
+              <span className="font-medium" style={changeColor ? { color: changeColor } : undefined}>{changeLabel}</span>
+            </p>
+          )}
 
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer>
@@ -124,6 +166,12 @@ export default function WeightGraphTab({ records }: WeightGraphTabProps) {
                   formatter={value => [`${formatWeight(Number(value))}kg`, '체중']}
                   labelFormatter={label => formatTooltipLabel(String(label))}
                 />
+                <ReferenceLine
+                  y={average}
+                  stroke="#7f77dd"
+                  strokeOpacity={0.5}
+                  strokeDasharray="5 4"
+                />
                 <Line
                   type="monotone"
                   dataKey="weightKg"
@@ -132,6 +180,8 @@ export default function WeightGraphTab({ records }: WeightGraphTabProps) {
                   dot={{ r: 3, fill: '#7f77dd' }}
                   activeDot={{ r: 5 }}
                 />
+                {maxMarker && <ReferenceDot x={maxMarker.x} y={maxMarker.y} r={5} fill="#fff" stroke={MAX_COLOR} strokeWidth={2.5} />}
+                {minMarker && <ReferenceDot x={minMarker.x} y={minMarker.y} r={5} fill="#fff" stroke={MIN_COLOR} strokeWidth={2.5} />}
               </LineChart>
             </ResponsiveContainer>
           </div>
